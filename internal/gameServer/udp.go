@@ -85,7 +85,7 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 		sendingPlayerNumber = playerNumber
 		buffer[0] = KeyInfoServerGratuitous // client will ignore countLag value in this case
 	} else {
-		buffer[0] = KeyInfoServer
+		buffer[0] = KeyInfoServerGratuitous
 	}
 	buffer[1] = playerNumber
 	buffer[2] = g.GameData.Status
@@ -143,7 +143,7 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 			return
 		}
 		countLag := g.sendUDPInput(count, addr, playerNumber, spectator != 0, sendingPlayerNumber)
-		g.GameData.BufferHealth[i] = int32(buf[11])
+		g.GameData.BufferHealth[sendingPlayerNumber] = int32(buf[11])
 
 		g.GameDataMutex.Lock() // PlayerAlive can be modified by ManagePlayers in a different thread
 		g.GameData.PlayerAlive[sendingPlayerNumber] = true
@@ -185,7 +185,7 @@ func (g *GameServer) watchUDP() {
 			}
 		}
 		if !validated {
-			g.Logger.Error(fmt.Errorf("invalid udp connection"), "bad IP", "IP")
+			g.Logger.Error(fmt.Errorf("invalid udp connection"), "bad IP", "IP", addr.IP)
 			continue
 		}
 
@@ -208,7 +208,7 @@ func (g *GameServer) createUDPServer() error {
 	g.Logger.Info("Created UDP server", "port", g.Port)
 
 	g.GameData.PlayerAddresses = make([]*net.UDPAddr, 4) //nolint:gomnd,mnd
-	g.GameData.BufferSize = []uint32{6, 6, 6, 6}
+	g.GameData.BufferSize = []uint32{3, 3, 3, 3}
 	g.GameData.BufferHealth = []int32{-1, -1, -1, -1}
 	g.GameData.Inputs = make([]map[uint32]uint32, 4) //nolint:gomnd,mnd
 	for i := range 4 {
