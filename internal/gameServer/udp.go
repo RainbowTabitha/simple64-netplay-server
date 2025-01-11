@@ -74,13 +74,7 @@ func (g *GameServer) fillInput(playerNumber byte, count uint32) {
 func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber byte, spectator bool, sendingPlayerNumber byte) uint32 {
 	buffer := make([]byte, 508) //nolint:gomnd,mnd
 	var countLag uint32
-	if uintLarger(count, g.GameData.LeadCount) {
-		if !spectator {
-			g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount", "count", count, "LeadCount", g.GameData.LeadCount, "playerNumber", playerNumber)
-		}
-	} else {
-		countLag = g.GameData.LeadCount - count
-	}
+	countLag = 8
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
 		sendingPlayerNumber = playerNumber
 		buffer[0] = KeyInfoServerGratuitous // client will ignore countLag value in this case
