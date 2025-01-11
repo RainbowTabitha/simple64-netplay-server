@@ -142,7 +142,6 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 			g.Logger.Error(err, "could not process request", "regID", regID)
 			return
 		}
-		countLag := g.sendUDPInput(count, addr, playerNumber, spectator != 0, sendingPlayerNumber)
 		g.GameData.BufferHealth[sendingPlayerNumber] = 8
 		g.GameData.BufferSize[sendingPlayerNumber] = 8
 
