@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"strings"
 	"time"
-	"strconv"
 
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -193,36 +191,6 @@ func (g *GameServer) watchUDP() {
 		}
 
 		g.processUDP(addr, buf)
-	}
-}
-
-func (g *GameServer) processChatMessage(playerNumber byte, message string) {
-	if strings.HasPrefix(message, "/lag ") {
-		lagStr := strings.TrimSpace(strings.TrimPrefix(message, "/lag "))
-		lagValue, err := strconv.Atoi(lagStr)
-		if err != nil {
-			g.Logger.Error(err, "Invalid lag value", "message", message)
-			for _, playerAddr := range g.GameData.PlayerAddresses {
-				if playerAddr != nil {
-					sendChatMessage(g, playerAddr, "SERVER", "Invalid lag value. Please enter a number.")
-				}
-			}
-			return
-		}
-
-		if lagValue > 30 {
-			sendChatMessage(g, g.GameData.PlayerAddresses[playerNumber], "SERVER", "Input delay cannot exceed 30! Setting to 30 instead.")
-			lagValue = 30
-		}
-
-		g.GameData.InputDelay = int32(lagValue)
-		g.Logger.Info("Input delay set via chat", "inputDelay", lagValue)
-
-		for _, playerAddr := range g.GameData.PlayerAddresses {
-			if playerAddr != nil {
-				sendChatMessage(g, playerAddr, "SERVER", fmt.Sprintf("Input delay set to %d", lagValue))
-			}
-		}
 	}
 }
 

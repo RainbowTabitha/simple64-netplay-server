@@ -53,6 +53,7 @@ const (
 	TypeReplyMotd          = "reply_motd"
 	TypeRequestVersion     = "request_version"
 	TypeReplyVersion       = "reply_version"
+	TypeUpdateBufferSize   = "update_buffer_size"
 )
 
 type LobbyServer struct {
@@ -89,6 +90,7 @@ type SocketMessage struct {
 	Rooms          []RoomData `json:"rooms,omitempty"`
 	Accept         int        `json:"accept"`
 	NetplayVersion int        `json:"netplay_version,omitempty"`
+    BufferSize 	   float64 	  `json:"buffer_size"`
 }
 
 const NetplayAPIVersion = 17
@@ -156,31 +158,7 @@ func (s *LobbyServer) publishDiscord(message string, channel string) {
 	}
 }
 
-func (s *LobbyServer) announceDiscord(g *gameserver.GameServer) {
-	roomType := "public"
-	if g.Password != "" {
-		roomType = "private"
-	}
-
-	message := fmt.Sprintf("New %s netplay room running in %s has been created! Come play %s", roomType, s.Name, g.GameName)
-
-	if roomType == "public" {
-		for i := range 10 {
-			channel := os.Getenv(fmt.Sprintf("%s_CHANNEL_%d", strings.ToUpper(g.Emulator), i))
-			if channel != "" {
-				s.publishDiscord(message, channel)
-			}
-		}
-	}
-
-	devChannel := os.Getenv(fmt.Sprintf("%s_DEV_CHANNEL", strings.ToUpper(g.Emulator)))
-	if devChannel != "" {
-		s.publishDiscord(message, devChannel)
-	}
-}
-
 func (s *LobbyServer) watchGameServer(name string, g *gameserver.GameServer) {
-	//go g.ManageBuffer()
 	go g.ManagePlayers()
 	for {
 		if !g.Running {
@@ -263,8 +241,6 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			s.Logger.Info("could not read WS message", "reason", err.Error(), "address", ws.Request().RemoteAddr)
 			continue
 		}
-
-		// s.Logger.Info("received message", "message", receivedMessage)
 
 		var sendMessage SocketMessage
 
@@ -349,7 +325,6 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 					if err := s.sendData(ws, sendMessage); err != nil {
 						s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 					}
-					s.announceDiscord(&g)
 				}
 			}
 		} else if receivedMessage.Type == TypeRequestGetRooms {
@@ -553,6 +528,8 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			if err := s.sendData(ws, sendMessage); err != nil {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 			}
+		} else if receivedMessage.Type == TypeUpdateBufferSize {
+			s.handleUpdateBufferSize(receivedMessage)
 		} else {
 			s.Logger.Info("not a valid lobby message type", "message", receivedMessage, "address", ws.Request().RemoteAddr)
 		}
@@ -661,4 +638,15 @@ func getVersion() string {
 		}
 	}
 	return fmt.Sprintf("git: %s. api: %d", version, NetplayAPIVersion)
+}
+
+func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
+	bufferSize := int(message.BufferSize) // Convert to int if needed
+	s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
+
+	// Update the buffer size in the game server
+	for _, gameServer := range s.GameServers {
+		gameServer.GameData.BufferSize = append(gameServer.GameData.BufferSize, uint32(bufferSize))
+		// Optionally, broadcast the new buffer size to all players
+	}
 }
