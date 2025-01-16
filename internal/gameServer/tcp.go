@@ -18,6 +18,7 @@ type TCPData struct {
 	Request        byte
 	CustomID       byte
 	CustomDatasize uint32
+	InputDelay	   int
 }
 
 const (
@@ -35,6 +36,7 @@ const (
 	RequestRegisterPlayer   = 5
 	RequestGetRegistration  = 6
 	RequestDisconnectNotice = 7
+	RequestSetInputDelay    = 8
 	RequestSendCustomStart  = 64 // 64-127 are custom data send slots, 128-191 are custom data receive slots
 	CustomDataOffset        = 64
 )
@@ -161,6 +163,19 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 				}
 			} else {
 				continue // nothing to do
+			}
+		}
+
+		if tcpData.Request == RequestSetInputDelay { // handle input delay setting
+			if tcpData.Buffer.Len() >= 4 { // assuming input delay is sent as a 4-byte integer
+				inputDelayBytes := make([]byte, 4)
+				_, err = tcpData.Buffer.Read(inputDelayBytes)
+				if err != nil {
+					g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
+				}
+				tcpData.InputDelay = int(binary.BigEndian.Uint32(inputDelayBytes))
+				g.Logger.Info("Input delay set", "inputDelay", tcpData.InputDelay, "address", conn.RemoteAddr().String())
+				tcpData.Request = RequestNone // Reset request after processing
 			}
 		}
 
