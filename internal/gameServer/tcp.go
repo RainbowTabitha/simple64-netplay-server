@@ -166,22 +166,22 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 			}
 		}
 
-        if tcpData.Request == RequestSetInputDelay { // handle input delay setting
-            if tcpData.Buffer.Len() >= 4 { // assuming input delay is sent as a 4-byte integer
-                inputDelayBytes := make([]byte, 4)
-                _, err = tcpData.Buffer.Read(inputDelayBytes)
-                if err != nil {
-                    g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
-                }
-                tcpData.InputDelay = int(binary.BigEndian.Uint32(inputDelayBytes))
-                g.Logger.Info("Input delay set", "inputDelay", tcpData.InputDelay, "address", conn.RemoteAddr().String())
+		if tcpData.Buffer.Len() >= 1 {
+	        inputDelayByte := make([]byte, 1)
+	        _, err = tcpData.Buffer.Read(inputDelayByte)
+	        if err != nil {
+	            g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
+	        }
+	        tcpData.InputDelay = int(inputDelayByte[0]) // Convert the byte to an integer
+	        g.Logger.Info("Input delay set", "inputDelay", tcpData.InputDelay, "address", conn.RemoteAddr().String())
 
-                // Broadcast the new input delay to all clients
-                g.broadcastInputDelay(tcpData.InputDelay)
+	        // Broadcast the new input delay to all clients
+	        g.broadcastInputDelay(tcpData.InputDelay)
 
-                tcpData.Request = RequestNone // Reset request after processing
-            }
-        }
+	        tcpData.Request = RequestNone // Reset request after processing
+	    } else {
+	        g.Logger.Info("Not enough data to read input delay", "bufferLength", tcpData.Buffer.Len())
+	    }
 
 		if (tcpData.Request == RequestSendSave || tcpData.Request == RequestReceiveSave) && tcpData.Filename == "" { // get file name
 			if bytes.IndexByte(tcpData.Buffer.Bytes(), 0) != -1 {
