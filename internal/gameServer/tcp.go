@@ -166,18 +166,22 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 			}
 		}
 
-		if tcpData.Request == RequestSetInputDelay { // handle input delay setting
-			if tcpData.Buffer.Len() >= 4 { // assuming input delay is sent as a 4-byte integer
-				inputDelayBytes := make([]byte, 4)
-				_, err = tcpData.Buffer.Read(inputDelayBytes)
-				if err != nil {
-					g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
-				}
-				tcpData.InputDelay = int(binary.BigEndian.Uint32(inputDelayBytes))
-				g.Logger.Info("Input delay set", "inputDelay", tcpData.InputDelay, "address", conn.RemoteAddr().String())
-				tcpData.Request = RequestNone // Reset request after processing
-			}
-		}
+        if tcpData.Request == RequestSetInputDelay { // handle input delay setting
+            if tcpData.Buffer.Len() >= 4 { // assuming input delay is sent as a 4-byte integer
+                inputDelayBytes := make([]byte, 4)
+                _, err = tcpData.Buffer.Read(inputDelayBytes)
+                if err != nil {
+                    g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
+                }
+                tcpData.InputDelay = int(binary.BigEndian.Uint32(inputDelayBytes))
+                g.Logger.Info("Input delay set", "inputDelay", tcpData.InputDelay, "address", conn.RemoteAddr().String())
+
+                // Broadcast the new input delay to all clients
+                g.broadcastInputDelay(tcpData.InputDelay)
+
+                tcpData.Request = RequestNone // Reset request after processing
+            }
+        }
 
 		if (tcpData.Request == RequestSendSave || tcpData.Request == RequestReceiveSave) && tcpData.Filename == "" { // get file name
 			if bytes.IndexByte(tcpData.Buffer.Bytes(), 0) != -1 {
@@ -407,4 +411,17 @@ func (g *GameServer) createTCPServer(basePort int, maxGames int) int {
 		}
 	}
 	return 0
+}
+
+func (g *GameServer) broadcastInputDelay(inputDelay int) {
+    for _, conn := range g.ClientConnections { // Assuming you have a slice of connections
+        response := make([]byte, 5) // 1 byte for request type + 4 bytes for input delay
+        response[0] = RequestSetInputDelay // Set the request type
+        binary.BigEndian.PutUint32(response[1:], uint32(inputDelay)) // Set the input delay
+
+        _, err := conn.Write(response)
+        if err != nil {
+            g.Logger.Error(err, "could not send input delay", "address", conn.RemoteAddr().String())
+        }
+    }
 }
