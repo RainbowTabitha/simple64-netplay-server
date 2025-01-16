@@ -165,24 +165,7 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 				continue // nothing to do
 			}
 		}
-
-		if tcpData.Buffer.Len() >= 1 {
-	        inputDelayByte := make([]byte, 1)
-	        _, err = tcpData.Buffer.Read(inputDelayByte)
-	        if err != nil {
-	            g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
-	        }
-	        tcpData.InputDelay = int(inputDelayByte[0]) // Convert the byte to an integer
-	        g.Logger.Info("Input delay set", "inputDelay", tcpData.InputDelay, "address", conn.RemoteAddr().String())
-
-	        // Broadcast the new input delay to all clients
-	        g.broadcastInputDelay(tcpData.InputDelay)
-
-	        tcpData.Request = RequestNone // Reset request after processing
-	    } else {
-	        g.Logger.Info("Not enough data to read input delay", "bufferLength", tcpData.Buffer.Len())
-	    }
-
+		
 		if (tcpData.Request == RequestSendSave || tcpData.Request == RequestReceiveSave) && tcpData.Filename == "" { // get file name
 			if bytes.IndexByte(tcpData.Buffer.Bytes(), 0) != -1 {
 				filenameBytes, err := tcpData.Buffer.ReadBytes(0)
