@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strings"
 	"time"
+	"strconv"
 
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -202,14 +204,14 @@ func (g *GameServer) processChatMessage(playerNumber byte, message string) {
 			g.Logger.Error(err, "Invalid lag value", "message", message)
 			for _, playerAddr := range g.GameData.PlayerAddresses {
 				if playerAddr != nil {
-					sendChatMessage(playerAddr, "SERVER", "Invalid lag value. Please enter a number.")
+					sendChatMessage(g, playerAddr, "SERVER", "Invalid lag value. Please enter a number.")
 				}
 			}
 			return
 		}
 
 		if lagValue > 30 {
-			sendChatMessage(g.GameData.PlayerAddresses[playerNumber], "SERVER", "Input delay cannot exceed 30! Setting to 30 instead.")
+			sendChatMessage(g, g.GameData.PlayerAddresses[playerNumber], "SERVER", "Input delay cannot exceed 30! Setting to 30 instead.")
 			lagValue = 30
 		}
 
@@ -218,13 +220,13 @@ func (g *GameServer) processChatMessage(playerNumber byte, message string) {
 
 		for _, playerAddr := range g.GameData.PlayerAddresses {
 			if playerAddr != nil {
-				sendChatMessage(playerAddr, "SERVER", fmt.Sprintf("Input delay set to %d", lagValue))
+				sendChatMessage(g, playerAddr, "SERVER", fmt.Sprintf("Input delay set to %d", lagValue))
 			}
 		}
 	}
 }
 
-func sendChatMessage(addr *net.UDPAddr, playerName string, message string) {
+func sendChatMessage(g *GameServer, addr *net.UDPAddr, playerName string, message string) {
 	// Format the message to include the player's name
 	formattedMessage := fmt.Sprintf("%s: %s", playerName, message)
 
