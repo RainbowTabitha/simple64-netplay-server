@@ -637,7 +637,7 @@ func getVersion() string {
 			}
 		}
 	}
-	return fmt.Sprintf("git: %s. api: %d", version, NetplayAPIVersion)
+	return fmt.Sprintf("git: %s. api: %s", version, NetplayAPIVersion)
 }
 
 func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
