@@ -180,7 +180,7 @@ func (s *LobbyServer) announceDiscord(g *gameserver.GameServer) {
 }
 
 func (s *LobbyServer) watchGameServer(name string, g *gameserver.GameServer) {
-	go g.ManageBuffer()
+	//go g.ManageBuffer()
 	go g.ManagePlayers()
 	for {
 		if !g.Running {
