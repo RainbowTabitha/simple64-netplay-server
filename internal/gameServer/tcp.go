@@ -391,6 +391,8 @@ func (g *GameServer) watchTCP() {
 		}
 
 		g.Logger.Info("received TCP connection", "address", conn.RemoteAddr().String())
+		g.ClientConnections = append(g.ClientConnections, conn)
+
 		go g.processTCP(conn)
 	}
 }
@@ -414,7 +416,7 @@ func (g *GameServer) createTCPServer(basePort int, maxGames int) int {
 }
 
 func (g *GameServer) broadcastInputDelay(inputDelay int) {
-    for _, conn := range g.ClientConnections { // Assuming you have a slice of connections
+    for _, conn := range g.ClientConnections {
         response := make([]byte, 5) // 1 byte for request type + 4 bytes for input delay
         response[0] = RequestSetInputDelay // Set the request type
         binary.BigEndian.PutUint32(response[1:], uint32(inputDelay)) // Set the input delay
