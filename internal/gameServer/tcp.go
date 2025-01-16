@@ -18,7 +18,6 @@ type TCPData struct {
 	Request        byte
 	CustomID       byte
 	CustomDatasize uint32
-	InputDelay	   int
 }
 
 const (
@@ -36,7 +35,6 @@ const (
 	RequestRegisterPlayer   = 5
 	RequestGetRegistration  = 6
 	RequestDisconnectNotice = 7
-	RequestSetInputDelay    = 8
 	RequestSendCustomStart  = 64 // 64-127 are custom data send slots, 128-191 are custom data receive slots
 	CustomDataOffset        = 64
 )
@@ -396,17 +394,4 @@ func (g *GameServer) createTCPServer(basePort int, maxGames int) int {
 		}
 	}
 	return 0
-}
-
-func (g *GameServer) broadcastInputDelay(inputDelay int) {
-    for _, conn := range g.ClientConnections {
-        response := make([]byte, 2) // 1 byte for request type + 1 byte for input delay
-        response[0] = RequestSetInputDelay // Set the request type
-        response[1] = byte(inputDelay) // Set the input delay as a byte
-
-        _, err := conn.Write(response)
-        if err != nil {
-            g.Logger.Error(err, "could not send input delay", "address", conn.RemoteAddr().String())
-        }
-    }
 }

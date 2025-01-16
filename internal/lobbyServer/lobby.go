@@ -647,6 +647,5 @@ func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
 	// Update the buffer size in the game server
 	for _, gameServer := range s.GameServers {
 		gameServer.GameData.BufferSize = append(gameServer.GameData.BufferSize, uint32(bufferSize))
-		// Optionally, broadcast the new buffer size to all players
 	}
 }
