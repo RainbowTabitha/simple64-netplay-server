@@ -17,6 +17,7 @@ type GameData struct {
 	PlayerAddresses []*net.UDPAddr
 	BufferSize      []uint32
 	BufferHealth    []int32
+	InputDelay    	int32
 	Inputs          []map[uint32]uint32
 	Plugin          []map[uint32]byte
 	PendingInput    []uint32
@@ -190,6 +191,50 @@ func (g *GameServer) watchUDP() {
 		}
 
 		g.processUDP(addr, buf)
+	}
+}
+
+func (g *GameServer) processChatMessage(playerNumber byte, message string) {
+	if strings.HasPrefix(message, "/lag ") {
+		lagStr := strings.TrimSpace(strings.TrimPrefix(message, "/lag "))
+		lagValue, err := strconv.Atoi(lagStr)
+		if err != nil {
+			g.Logger.Error(err, "Invalid lag value", "message", message)
+			for _, playerAddr := range g.GameData.PlayerAddresses {
+				if playerAddr != nil {
+					sendChatMessage(playerAddr, "SERVER", "Invalid lag value. Please enter a number.")
+				}
+			}
+			return
+		}
+
+		if lagValue > 30 {
+			sendChatMessage(g.GameData.PlayerAddresses[playerNumber], "SERVER", "Input delay cannot exceed 30! Setting to 30 instead.")
+			lagValue = 30
+		}
+
+		g.GameData.InputDelay = int32(lagValue)
+		g.Logger.Info("Input delay set via chat", "inputDelay", lagValue)
+
+		for _, playerAddr := range g.GameData.PlayerAddresses {
+			if playerAddr != nil {
+				sendChatMessage(playerAddr, "SERVER", fmt.Sprintf("Input delay set to %d", lagValue))
+			}
+		}
+	}
+}
+
+func sendChatMessage(addr *net.UDPAddr, playerName string, message string) {
+	// Format the message to include the player's name
+	formattedMessage := fmt.Sprintf("%s: %s", playerName, message)
+
+	// Convert the formatted message to bytes
+	messageBytes := []byte(formattedMessage)
+
+	// Send the message to the specified address
+	_, err := g.UDPListener.WriteToUDP(messageBytes, addr)
+	if err != nil {
+		g.Logger.Error(err, "could not send chat message", "address", addr.String())
 	}
 }
 
