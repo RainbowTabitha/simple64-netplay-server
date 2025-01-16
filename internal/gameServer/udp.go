@@ -196,7 +196,7 @@ func (g *GameServer) watchUDP() {
 
 func sendChatMessage(g *GameServer, addr *net.UDPAddr, playerName string, message string) {
 	// Format the message to include the player's name
-	formattedMessage := fmt.Sprintf("%s: %s", playerName, message)
+	formattedMessage := fmt.Sprintf("<b>%s:</b> %s", playerName, message)
 
 	// Convert the formatted message to bytes
 	messageBytes := []byte(formattedMessage)

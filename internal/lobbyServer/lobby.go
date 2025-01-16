@@ -89,11 +89,11 @@ type SocketMessage struct {
 	Room           *RoomData  `json:"room,omitempty"`
 	Rooms          []RoomData `json:"rooms,omitempty"`
 	Accept         int        `json:"accept"`
-	NetplayVersion int        `json:"netplay_version,omitempty"`
+	NetplayVersion string     `json:"netplay_version,omitempty"`
     BufferSize 	   float64 	  `json:"buffer_size"`
 }
 
-const NetplayAPIVersion = 17
+const NetplayAPIVersion = "MPNServer-1"
 
 func (s *LobbyServer) sendData(ws *websocket.Conn, message SocketMessage) error {
 	// s.Logger.Info("sending message", "message", message, "address", ws.Request().RemoteAddr)
