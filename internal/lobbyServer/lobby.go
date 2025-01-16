@@ -641,11 +641,15 @@ func getVersion() string {
 }
 
 func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
-	bufferSize := int(message.BufferSize) // Convert to int if needed
-	s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
+    bufferSize := int(message.BufferSize) // Convert to int if needed
+    s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
 
-	// Update the buffer size in the game server
-	for _, gameServer := range s.GameServers {
-		gameServer.GameData.BufferSize = append(gameServer.GameData.BufferSize, uint32(bufferSize))
-	}
+    // Update the BufferSize for each game server
+    for _, gameServer := range s.GameServers {
+        gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
+        for i := range gameServer.GameData.BufferSize {
+            gameServer.GameData.BufferSize[i] = uint32(bufferSize)
+        }
+        gameServer.GameDataMutex.Unlock() // Unlock after updating
+    }
 }

@@ -223,7 +223,7 @@ func (g *GameServer) createUDPServer() error {
 	g.Logger.Info("Created UDP server", "port", g.Port)
 
 	g.GameData.PlayerAddresses = make([]*net.UDPAddr, 4) //nolint:gomnd,mnd
-	g.GameData.BufferSize = []uint32{3, 3, 3, 3}
+	g.GameData.BufferSize = []uint32{5, 5, 5, 5}
 	g.GameData.BufferHealth = []int32{-1, -1, -1, -1}
 	g.GameData.Inputs = make([]map[uint32]uint32, 4) //nolint:gomnd,mnd
 	for i := range 4 {
