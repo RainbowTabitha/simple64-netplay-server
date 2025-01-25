@@ -207,6 +207,31 @@ func sendChatMessage(g *GameServer, addr *net.UDPAddr, playerName string, messag
 	}
 }
 
+func (g *GameServer) updateBufferPeriodically() {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// Store the original buffer sizes
+			originalBufferSizes := make([]uint32, len(g.GameData.BufferSize))
+			copy(originalBufferSizes, g.GameData.BufferSize)
+
+			// Update the buffer to 1
+			for i := range g.GameData.BufferSize {
+				g.GameData.BufferSize[i] = 1
+			}
+
+			// Wait for 0.50 seconds
+			time.Sleep(500 * time.Millisecond)
+
+			// Restore the buffer to its original values
+			copy(g.GameData.BufferSize, originalBufferSizes)
+		}
+	}
+}
+
 func (g *GameServer) createUDPServer() error {
 	var err error
 	g.UDPListener, err = net.ListenUDP("udp", &net.UDPAddr{Port: g.Port})
@@ -223,7 +248,7 @@ func (g *GameServer) createUDPServer() error {
 
 	g.GameData.PlayerAddresses = make([]*net.UDPAddr, 4) //nolint:gomnd,mnd
 	g.GameData.BufferSize = []uint32{5, 5, 5, 5}
-	g.GameData.BufferHealth = []int32{-1, -1, -1, -1}
+	g.GameData.BufferHealth = []int32{5, 5, 5, 5}
 	g.GameData.Inputs = make([]map[uint32]uint32, 4) //nolint:gomnd,mnd
 	for i := range 4 {
 		g.GameData.Inputs[i] = make(map[uint32]uint32)
@@ -239,5 +264,6 @@ func (g *GameServer) createUDPServer() error {
 	g.GameData.CountLag = make([]uint32, 4)  //nolint:gomnd,mnd
 
 	go g.watchUDP()
+	go g.updateBufferPeriodically()
 	return nil
 }
