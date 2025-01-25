@@ -649,9 +649,7 @@ func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
         gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
         for i := range gameServer.GameData.BufferSize {
             gameServer.GameData.BufferSize[i] = uint32(bufferSize)
-        }
-		for i := range gameServer.GameData.BufferHealth {
-			gameServer.GameData.BufferHealth[i] = int32(bufferSize)
+        	gameServer.GameData.BufferHealth[i] = int32(bufferSize)
         }
         gameServer.GameDataMutex.Unlock() // Unlock after updating
     }
