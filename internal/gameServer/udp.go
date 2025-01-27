@@ -208,6 +208,11 @@ func sendChatMessage(g *GameServer, addr *net.UDPAddr, playerName string, messag
 }
 
 func (g *GameServer) updateBufferStart() {
+	// Ensure this function runs only once
+	if g.bufferStartDone {
+		return
+	}
+
 	// Start by waiting for 2.5 seconds to allow for any initial setup.
 	g.Logger.Info("Starting initial sleep (2.5 seconds)...")
 	time.Sleep(2500 * time.Millisecond)
@@ -228,16 +233,11 @@ func (g *GameServer) updateBufferStart() {
 	g.Logger.Info("Done with 10-second sleep.")
 
 	// Restore the buffer sizes to their original values after the wait
-	if len(g.GameData.BufferSize) == len(originalBufferSizes) {
-		copy(g.GameData.BufferSize, originalBufferSizes)
-	} else {
-		g.Logger.Error(fmt.Errorf("buffer size length mismatch"), "original and current buffer sizes have different lengths")
-	}
+	copy(g.GameData.BufferSize, originalBufferSizes)
 
-	// Optionally, log to confirm values after restoration
-	g.Logger.Info("Buffer sizes restored.", "BufferSize", g.GameData.BufferSize)
+	// Set the flag to indicate that the function has been executed
+	g.bufferStartDone = true
 }
-
 
 func (g *GameServer) createUDPServer() error {
 	var err error
