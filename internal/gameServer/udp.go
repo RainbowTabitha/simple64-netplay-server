@@ -98,7 +98,8 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	    if countLag > 20 {
 	        g.GameData.BufferHealth[i] = 1
 	        g.GameData.BufferSize[i] = 1
-	    } else {
+	    } 
+		if countLag < 19 {
 	        g.GameData.BufferHealth[i] = oldBufferHealth[i]
 	        g.GameData.BufferSize[i] = uint32(oldBufferHealth[i])
 	    }
