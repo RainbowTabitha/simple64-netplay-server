@@ -145,7 +145,7 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 			return
 		}
 		countLag := g.sendUDPInput(count, addr, playerNumber, spectator != 0, sendingPlayerNumber)
-
+		go g.updateBufferStart()
 		g.GameDataMutex.Lock() // PlayerAlive can be modified by ManagePlayers in a different thread
 		g.GameData.PlayerAlive[sendingPlayerNumber] = true
 		g.GameDataMutex.Unlock()
@@ -208,38 +208,7 @@ func sendChatMessage(g *GameServer, addr *net.UDPAddr, playerName string, messag
 	}
 }
 
-func (g *GameServer) updateBufferPeriodically() {
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			// Store the original buffer sizes
-			originalBufferSizes := make([]uint32, len(g.GameData.BufferSize))
-			copy(originalBufferSizes, g.GameData.BufferSize)
-
-			// Update the buffer to 1
-			for i := range g.GameData.BufferSize {
-				g.GameData.BufferSize[i] = 1
-			}
-
-			// Wait for 0.20 seconds
-			time.Sleep(200 * time.Millisecond)
-
-			// Restore the buffer to its original values
-			copy(g.GameData.BufferSize, originalBufferSizes)
-		}
-	}
-}
-
-
 func (g *GameServer) updateBufferStart() {
-	// Ensure this function runs only once
-	if g.bufferStartDone {
-		return
-	}
-
 	// Start by waiting for 2.5 seconds to allow for any initial setup.
 	g.Logger.Info("Starting initial sleep (2.5 seconds)...")
 	time.Sleep(2500 * time.Millisecond)
@@ -255,15 +224,19 @@ func (g *GameServer) updateBufferStart() {
 	}
 
 	// Wait for 10 seconds to allow time for any necessary adjustments
-	g.Logger.Info("Starting sleep for buffer adjustment (5 seconds)...")
-	time.Sleep(5000 * time.Millisecond)
-	g.Logger.Info("Done with 5-second sleep.")
+	g.Logger.Info("Starting sleep for buffer adjustment (10 seconds)...")
+	time.Sleep(10000 * time.Millisecond)
+	g.Logger.Info("Done with 10-second sleep.")
 
 	// Restore the buffer sizes to their original values after the wait
-	copy(g.GameData.BufferSize, originalBufferSizes)
+	if len(g.GameData.BufferSize) == len(originalBufferSizes) {
+		copy(g.GameData.BufferSize, originalBufferSizes)
+	} else {
+		g.Logger.Error(fmt.Errorf("buffer size length mismatch"), "original and current buffer sizes have different lengths")
+	}
 
-	// Set the flag to indicate that the function has been executed
-	g.bufferStartDone = true
+	// Optionally, log to confirm values after restoration
+	g.Logger.Info("Buffer sizes restored.", "BufferSize", g.GameData.BufferSize)
 }
 
 
@@ -299,7 +272,5 @@ func (g *GameServer) createUDPServer() error {
 	g.GameData.CountLag = make([]uint32, 4)  //nolint:gomnd,mnd
 
 	go g.watchUDP()
-	go g.updateBufferStart()
-	go g.updateBufferPeriodically()
 	return nil
 }
