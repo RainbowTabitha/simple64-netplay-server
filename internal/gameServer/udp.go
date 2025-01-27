@@ -237,7 +237,29 @@ func (g *GameServer) updateBufferStart() {
 
 	// Restore the buffer sizes to their original values after the wait
 	copy(g.GameData.BufferSize, originalBufferSizes)
+
+	// Start a goroutine to adjust the buffer sizes periodically
+	go func() {
+		for {
+			// Set buffer sizes to 1
+			g.Logger.Info("Setting buffer sizes to 1 for 1 second.")
+			for i := range g.GameData.BufferSize {
+				g.GameData.BufferSize[i] = 1
+			}
+
+			// Sleep for 1 second
+			time.Sleep(1 * time.Second)
+
+			// Restore the original buffer sizes
+			g.Logger.Info("Restoring original buffer sizes and sleeping for 15 seconds.")
+			copy(g.GameData.BufferSize, originalBufferSizes)
+
+			// Sleep for 15 seconds before repeating
+			time.Sleep(15 * time.Second)
+		}
+	}()
 }
+
 
 func (g *GameServer) createUDPServer() error {
 	var err error
