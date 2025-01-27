@@ -82,6 +82,16 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	} else {
 		countLag = g.GameData.LeadCount - count
 	}
+
+	// Update CountLag and adjust BufferHealth if necessary
+	g.GameData.CountLag[sendingPlayerNumber] = countLag
+	if countLag > 3 {
+		g.GameData.BufferHealth[sendingPlayerNumber] = 1
+	} else if g.GameData.BufferHealth[sendingPlayerNumber] == 1 {
+		// Optionally restore BufferHealth when lag is resolved
+		g.GameData.BufferHealth[sendingPlayerNumber] = 5
+	}
+
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
 		sendingPlayerNumber = playerNumber
 		buffer[0] = KeyInfoServer // client will ignore countLag value in this case
@@ -144,7 +154,6 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 			return
 		}
 		countLag := g.sendUDPInput(count, addr, playerNumber, spectator != 0, sendingPlayerNumber)
-		go g.updateBufferStart()
 		g.GameDataMutex.Lock() // PlayerAlive can be modified by ManagePlayers in a different thread
 		g.GameData.PlayerAlive[sendingPlayerNumber] = true
 		g.GameDataMutex.Unlock()
@@ -205,59 +214,6 @@ func sendChatMessage(g *GameServer, addr *net.UDPAddr, playerName string, messag
 	if err != nil {
 		g.Logger.Error(err, "could not send chat message", "address", addr.String())
 	}
-}
-
-func (g *GameServer) updateBufferStart() {
-	// Ensure this function runs only once
-	if g.bufferStartDone {
-		return
-	}
-
-	// Set the flag to indicate that the function has been executed
-	g.bufferStartDone = true
-
-	// Start by waiting for 2.5 seconds to allow for any initial setup.
-	g.Logger.Info("Starting initial sleep (2.5 seconds)...")
-	time.Sleep(2500 * time.Millisecond)
-	g.Logger.Info("Done with 2.5-second sleep.")
-
-	// Store the original buffer sizes to restore later
-	originalBufferSizes := make([]uint32, len(g.GameData.BufferSize))
-	copy(originalBufferSizes, g.GameData.BufferSize)
-
-	// Set the buffer sizes to 1 initially
-	for i := range g.GameData.BufferSize {
-		g.GameData.BufferSize[i] = 1
-	}
-
-	// Wait for 10 seconds to allow time for any necessary adjustments
-	g.Logger.Info("Starting sleep for buffer adjustment (10 seconds)...")
-	time.Sleep(7500 * time.Millisecond)
-	g.Logger.Info("Done with 10-second sleep.")
-
-	// Restore the buffer sizes to their original values after the wait
-	copy(g.GameData.BufferSize, originalBufferSizes)
-
-	// Start a goroutine to adjust the buffer sizes periodically
-	go func() {
-		for {
-			// Set buffer sizes to 1
-			g.Logger.Info("Setting buffer sizes to 1 for 1 second.")
-			for i := range g.GameData.BufferSize {
-				g.GameData.BufferSize[i] = 1
-			}
-
-			// Sleep for 1 second
-			time.Sleep(1 * time.Second)
-
-			// Restore the original buffer sizes
-			g.Logger.Info("Restoring original buffer sizes and sleeping for 15 seconds.")
-			copy(g.GameData.BufferSize, originalBufferSizes)
-
-			// Sleep for 15 seconds before repeating
-			time.Sleep(15 * time.Second)
-		}
-	}()
 }
 
 
