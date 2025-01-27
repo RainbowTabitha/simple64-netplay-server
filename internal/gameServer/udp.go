@@ -13,19 +13,22 @@ import (
 )
 
 type GameData struct {
-	SyncValues      map[uint32][]byte
-	PlayerAddresses []*net.UDPAddr
-	BufferSize      []uint32
-	BufferHealth    []int32
-	InputDelay    	int32
-	Inputs          []map[uint32]uint32
-	Plugin          []map[uint32]byte
-	PendingInput    []uint32
-	CountLag        []uint32
-	PendingPlugin   []byte
-	PlayerAlive     []bool
-	LeadCount       uint32
-	Status          byte
+	SyncValues       map[uint32][]byte
+	PlayerAddresses  []*net.UDPAddr
+	BufferSize       []uint32
+	BufferHealth     []int32
+	InputDelay    	 int32
+	Inputs           []map[uint32]uint32
+	Plugin           []map[uint32]byte
+	PendingInput     []uint32
+	CountLag         []uint32
+	PendingPlugin    []byte
+	PlayerAlive      []bool
+	LeadCount        uint32
+	Status           byte
+	PrevBufferHealth []int32
+    PrevBufferSize   []int32
+    CountLag         []int32
 }
 
 const (
@@ -190,9 +193,11 @@ func (g *GameServer) resetBuffers() {
 	g.GameDataMutex.Lock()
 	defer g.GameDataMutex.Unlock()
 
-	g.GameData.PrevBufferHealth = append([]uint32{}, g.GameData.BufferHealth...) // Backup current state
-	g.GameData.PrevBufferSize = append([]uint32{}, g.GameData.BufferSize...)     // Backup current state
+	// Backup current buffer states
+	g.GameData.PrevBufferHealth = append([]int32{}, g.GameData.BufferHealth...)
+	g.GameData.PrevBufferSize = append([]int32{}, g.GameData.BufferSize...)
 
+	// Reset buffers to 0
 	for i := range g.GameData.BufferHealth {
 		g.GameData.BufferHealth[i] = 0
 	}
@@ -203,11 +208,11 @@ func (g *GameServer) resetBuffers() {
 	g.Logger.Info("Buffers reset due to lagging players.")
 }
 
-// restoreBuffers restores the original values of BufferHealth and BufferSize
 func (g *GameServer) restoreBuffers() {
 	g.GameDataMutex.Lock()
 	defer g.GameDataMutex.Unlock()
 
+	// Restore buffers from backup
 	copy(g.GameData.BufferHealth, g.GameData.PrevBufferHealth)
 	copy(g.GameData.BufferSize, g.GameData.PrevBufferSize)
 
