@@ -224,7 +224,7 @@ func (g *GameServer) updateBufferPeriodically() {
 			}
 
 			// Wait for 0.20 seconds
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 
 			// Restore the buffer to its original values
 			copy(g.GameData.BufferSize, originalBufferSizes)
@@ -234,6 +234,7 @@ func (g *GameServer) updateBufferPeriodically() {
 
 
 func (g *GameServer) updateBufferStart() {
+	time.Sleep(2500 * time.Millisecond)
 	// Store the original buffer sizes
 	originalBufferSizes := make([]uint32, len(g.GameData.BufferSize))
 	copy(originalBufferSizes, g.GameData.BufferSize)
