@@ -114,7 +114,6 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 			g.Logger.Error(err, "could not send input")
 		}
 	}
-	go g.updateBufferPeriodically()
 	return countLag
 }
 
