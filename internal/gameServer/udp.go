@@ -85,17 +85,15 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 		countLag = g.GameData.LeadCount - count
 	}
 
-	// Initialize the entire BufferHealth array to 1 for all players
-	for i := range g.GameData.BufferHealth {
-	    g.GameData.BufferHealth[i] = 1
-	}
-
 	// Then, apply the logic to update the BufferHealth for the sendingPlayerNumber
-	g.GameData.CountLag[sendingPlayerNumber] = countLag
-	if countLag > 3 {
-	    g.GameData.BufferHealth[sendingPlayerNumber] = 1
-	} else {
-	    g.GameData.BufferHealth[sendingPlayerNumber] = 5
+	for i := range g.GameData.BufferHealth {
+		// Apply the countLag logic to all players
+		g.GameData.CountLag[i] = countLag
+		if countLag > 3 {
+			g.GameData.BufferHealth[i] = 1
+		} else {
+			g.GameData.BufferHealth[i] = 5
+		}
 	}
 
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
