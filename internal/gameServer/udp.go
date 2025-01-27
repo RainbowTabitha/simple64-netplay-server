@@ -245,7 +245,7 @@ func (g *GameServer) updateBufferStart() {
 	}
 
 	// Wait for 5 seconds
-	time.Sleep(5000 * time.Millisecond)
+	time.Sleep(10000 * time.Millisecond)
 
 	// Restore the buffer to its original values
 	copy(g.GameData.BufferSize, originalBufferSizes)
