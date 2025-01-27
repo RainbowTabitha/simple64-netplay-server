@@ -171,6 +171,27 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 		g.GameDataMutex.Unlock()
 
 		g.GameData.CountLag[sendingPlayerNumber] = countLag
+
+		// Create a temporary array to store the old values of BufferHealth
+		oldBufferHealth := make([]int32, len(g.GameData.BufferHealth))
+			
+		// Copy current BufferHealth values to oldBufferHealth before modifying
+		for i, v := range g.GameData.BufferHealth {
+		    oldBufferHealth[i] = v
+		}
+		
+		// Apply the countLag logic to all players
+		for i := range g.GameData.BufferHealth {
+		    // Apply the countLag logic
+		    g.GameData.CountLag[i] = countLag
+		    if countLag > 3 {
+		        g.GameData.BufferHealth[i] = 1
+		        g.GameData.BufferSize[i] = 1
+		    } else {
+		        g.GameData.BufferHealth[i] = oldBufferHealth[i]
+		        g.GameData.BufferSize[i] = uint32(oldBufferHealth[i])
+		    }
+		}
 	} else if buf[0] == CP0Info {
 		if g.GameData.Status&StatusDesync == 0 {
 			viCount := binary.BigEndian.Uint32(buf[1:])
