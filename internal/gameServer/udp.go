@@ -208,7 +208,7 @@ func sendChatMessage(g *GameServer, addr *net.UDPAddr, playerName string, messag
 }
 
 func (g *GameServer) updateBufferPeriodically() {
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -223,8 +223,8 @@ func (g *GameServer) updateBufferPeriodically() {
 				g.GameData.BufferSize[i] = 1
 			}
 
-			// Wait for 0.50 seconds
-			time.Sleep(500 * time.Millisecond)
+			// Wait for 0.20 seconds
+			time.Sleep(200 * time.Millisecond)
 
 			// Restore the buffer to its original values
 			copy(g.GameData.BufferSize, originalBufferSizes)
