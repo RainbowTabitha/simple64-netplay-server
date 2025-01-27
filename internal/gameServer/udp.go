@@ -248,7 +248,7 @@ func (g *GameServer) updateBufferStart() {
 			}
 
 			// Sleep for 1 second
-			time.Sleep(1 * time.Second)
+			time.Sleep(0.75 * time.Second)
 
 			// Restore the original buffer sizes
 			g.Logger.Info("Restoring original buffer sizes and sleeping for 15 seconds.")
