@@ -27,7 +27,7 @@ type GameData struct {
 	LeadCount        uint32
 	Status           byte
 	PrevBufferHealth []int32
-    PrevBufferSize   []int32
+    PrevBufferSize   []uint32
 }
 
 const (
