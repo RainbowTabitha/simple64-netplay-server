@@ -114,6 +114,7 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 			g.Logger.Error(err, "could not send input")
 		}
 	}
+	go g.updateBufferPeriodically()
 	return countLag
 }
 
@@ -234,20 +235,22 @@ func (g *GameServer) updateBufferPeriodically() {
 
 
 func (g *GameServer) updateBufferStart() {
+	// Start by waiting for 2.5 seconds to allow for any initial setup.
 	time.Sleep(2500 * time.Millisecond)
-	// Store the original buffer sizes
+	
+	// Store the original buffer sizes to restore later
 	originalBufferSizes := make([]uint32, len(g.GameData.BufferSize))
 	copy(originalBufferSizes, g.GameData.BufferSize)
 
-	// Update the buffer to 1
+	// Set the buffer sizes to 1 initially
 	for i := range g.GameData.BufferSize {
 		g.GameData.BufferSize[i] = 1
 	}
 
-	// Wait for 5 seconds
+	// Wait for 5 seconds to allow time for any necessary adjustments
 	time.Sleep(10000 * time.Millisecond)
 
-	// Restore the buffer to its original values
+	// Restore the buffer sizes to their original values after the wait
 	copy(g.GameData.BufferSize, originalBufferSizes)
 }
 
@@ -285,6 +288,5 @@ func (g *GameServer) createUDPServer() error {
 
 	go g.watchUDP()
 	go g.updateBufferStart()
-	go g.updateBufferPeriodically()
 	return nil
 }
