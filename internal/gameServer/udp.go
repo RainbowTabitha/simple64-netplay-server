@@ -28,7 +28,6 @@ type GameData struct {
 	Status           byte
 	PrevBufferHealth []int32
     PrevBufferSize   []int32
-    CountLag         []int32
 }
 
 const (
@@ -195,7 +194,7 @@ func (g *GameServer) resetBuffers() {
 
 	// Backup current buffer states
 	g.GameData.PrevBufferHealth = append([]int32{}, g.GameData.BufferHealth...)
-	g.GameData.PrevBufferSize = append([]int32{}, g.GameData.BufferSize...)
+	g.GameData.PrevBufferSize = append([]uint32{}, g.GameData.BufferSize...)
 
 	// Reset buffers to 0
 	for i := range g.GameData.BufferHealth {
