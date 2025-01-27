@@ -86,7 +86,7 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	}
 
 	// Create a temporary array to store the old values of BufferHealth
-	oldBufferHealth := make([]int, len(g.GameData.BufferHealth))
+	oldBufferHealth := make([]int32, len(g.GameData.BufferHealth))
 
 	// Copy current BufferHealth values to oldBufferHealth before modifying
 	copy(oldBufferHealth, g.GameData.BufferHealth)
