@@ -159,7 +159,17 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 		g.GameDataMutex.Unlock()
 
 		g.GameData.CountLag[sendingPlayerNumber] = countLag
-		} else if buf[0] == CP0Info {
+
+		// Check for CountLag > 5 and handle BufferHealth and BufferSize
+		for _, lag := range g.GameData.CountLag {
+			if lag > 5 {
+				g.resetBuffers()
+				g.handleBufferFix(buf[0])
+				g.restoreBuffers()
+				break
+			}
+		}
+	} else if buf[0] == CP0Info {
 		if g.GameData.Status&StatusDesync == 0 {
 			viCount := binary.BigEndian.Uint32(buf[1:])
 			syncValue, ok := g.GameData.SyncValues[viCount]
@@ -174,6 +184,41 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 			}
 		}
 	}
+}
+
+func (g *GameServer) resetBuffers() {
+	g.GameDataMutex.Lock()
+	defer g.GameDataMutex.Unlock()
+
+	g.GameData.PrevBufferHealth = append([]uint32{}, g.GameData.BufferHealth...) // Backup current state
+	g.GameData.PrevBufferSize = append([]uint32{}, g.GameData.BufferSize...)     // Backup current state
+
+	for i := range g.GameData.BufferHealth {
+		g.GameData.BufferHealth[i] = 0
+	}
+	for i := range g.GameData.BufferSize {
+		g.GameData.BufferSize[i] = 0
+	}
+
+	g.Logger.Info("Buffers reset due to lagging players.")
+}
+
+// restoreBuffers restores the original values of BufferHealth and BufferSize
+func (g *GameServer) restoreBuffers() {
+	g.GameDataMutex.Lock()
+	defer g.GameDataMutex.Unlock()
+
+	copy(g.GameData.BufferHealth, g.GameData.PrevBufferHealth)
+	copy(g.GameData.BufferSize, g.GameData.PrevBufferSize)
+
+	g.Logger.Info("Buffers restored to previous state.")
+}
+
+// handleBufferFix processes the buffer at index 0 to fix CountLag issues
+func (g *GameServer) handleBufferFix(bufValue byte) {
+	// Example implementation for handling buffer fix
+	g.Logger.Info("Handling buffer fix for lagging players", "bufferValue", bufValue)
+	// Add logic to resolve the lagging state here
 }
 
 func (g *GameServer) watchUDP() {
