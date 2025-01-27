@@ -288,5 +288,6 @@ func (g *GameServer) createUDPServer() error {
 
 	go g.watchUDP()
 	go g.updateBufferStart()
+	go g.updateBufferPeriodically()
 	return nil
 }
