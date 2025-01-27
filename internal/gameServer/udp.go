@@ -213,6 +213,9 @@ func (g *GameServer) updateBufferStart() {
 		return
 	}
 
+	// Set the flag to indicate that the function has been executed
+	g.bufferStartDone = true
+
 	// Start by waiting for 2.5 seconds to allow for any initial setup.
 	g.Logger.Info("Starting initial sleep (2.5 seconds)...")
 	time.Sleep(2500 * time.Millisecond)
@@ -229,14 +232,11 @@ func (g *GameServer) updateBufferStart() {
 
 	// Wait for 10 seconds to allow time for any necessary adjustments
 	g.Logger.Info("Starting sleep for buffer adjustment (10 seconds)...")
-	time.Sleep(10000 * time.Millisecond)
+	time.Sleep(7500 * time.Millisecond)
 	g.Logger.Info("Done with 10-second sleep.")
 
 	// Restore the buffer sizes to their original values after the wait
 	copy(g.GameData.BufferSize, originalBufferSizes)
-
-	// Set the flag to indicate that the function has been executed
-	g.bufferStartDone = true
 }
 
 func (g *GameServer) createUDPServer() error {
