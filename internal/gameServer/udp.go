@@ -235,9 +235,16 @@ func (g *GameServer) updateBufferPeriodically() {
 
 
 func (g *GameServer) updateBufferStart() {
+	// Ensure this function runs only once
+	if g.bufferStartDone {
+		return
+	}
+
 	// Start by waiting for 2.5 seconds to allow for any initial setup.
+	g.Logger.Info("Starting initial sleep (2.5 seconds)...")
 	time.Sleep(2500 * time.Millisecond)
-	
+	g.Logger.Info("Done with 2.5-second sleep.")
+
 	// Store the original buffer sizes to restore later
 	originalBufferSizes := make([]uint32, len(g.GameData.BufferSize))
 	copy(originalBufferSizes, g.GameData.BufferSize)
@@ -247,11 +254,16 @@ func (g *GameServer) updateBufferStart() {
 		g.GameData.BufferSize[i] = 1
 	}
 
-	// Wait for 5 seconds to allow time for any necessary adjustments
-	time.Sleep(10000 * time.Millisecond)
+	// Wait for 10 seconds to allow time for any necessary adjustments
+	g.Logger.Info("Starting sleep for buffer adjustment (5 seconds)...")
+	time.Sleep(5000 * time.Millisecond)
+	g.Logger.Info("Done with 5-second sleep.")
 
 	// Restore the buffer sizes to their original values after the wait
 	copy(g.GameData.BufferSize, originalBufferSizes)
+
+	// Set the flag to indicate that the function has been executed
+	g.bufferStartDone = true
 }
 
 

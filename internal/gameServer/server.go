@@ -46,6 +46,8 @@ type GameServer struct {
 	Running            bool
 	Features           map[string]string
 	ClientConnections  []*net.TCPConn
+	bufferStartDone    bool
+
 }
 
 func (g *GameServer) CreateNetworkServers(basePort int, maxGames int, roomName string, gameName string, emulatorName string, logger logr.Logger) int {
