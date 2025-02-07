@@ -179,8 +179,8 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 				continue // nothing to do
 			}
 		}
-
-		if (tcpData.Request == RequestSendSave || tcpData.Request == RequestReceiveSave || tcpData.Request == RequestReceiveSaveWithSize) && tcpData.Filename == "" { // get file name
+		
+		if (tcpData.Request == RequestSendSave || tcpData.Request == RequestReceiveSave) && tcpData.Filename == "" { // get file name
 			if bytes.IndexByte(tcpData.Buffer.Bytes(), 0) != -1 {
 				filenameBytes, err := tcpData.Buffer.ReadBytes(0)
 				if err != nil {
