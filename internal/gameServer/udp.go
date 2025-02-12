@@ -94,7 +94,7 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	// Apply the countLag logic to all players
 	for i := range g.GameData.BufferHealth {
 	    // Apply the countLag logic
-	    countLag = g.GameData.CountLag[0]
+	    countLag = g.GameData.CountLag[i]
 	    if countLag > 0 {
 	        g.GameData.BufferHealth[i] = oldBufferHealth[i] + 30
 	        g.GameData.BufferSize[i] = uint32(oldBufferHealth[i]) + 30
