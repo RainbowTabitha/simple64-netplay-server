@@ -90,21 +90,7 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 
 	// Copy current BufferHealth values to oldBufferHealth before modifying
 	copy(oldBufferHealth, g.GameData.BufferHealth)
-
-	// Apply the countLag logic to all players
-	for i := range g.GameData.BufferHealth {
-	    // Apply the countLag logic
-	    countLag = g.GameData.CountLag[0]
-	    if countLag > 4 {
-	        g.GameData.BufferHealth[i] = 0
-	        g.GameData.BufferSize[i] = 0
-	    } 
-		if countLag < 0 {
-	        g.GameData.BufferHealth[i] = oldBufferHealth[i]
-	        g.GameData.BufferSize[i] = uint32(oldBufferHealth[i])
-	    }
-	}
-
+	
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
 		sendingPlayerNumber = playerNumber
 		buffer[0] = KeyInfoServer // client will ignore countLag value in this case
