@@ -114,11 +114,11 @@ func (g *GameServer) adjustBuffers() uint32 {
 				g.GameData.BufferSize[i] = 1
 			} else {
 				// Reset buffer size to the original value from oldBuffer
-				g.updateBufferSize(oldBufferInt)
+				g.updateBufferSize(oldBufferInt, i)
 			}
 		} else {
 			// Reset buffer size to the original value from oldBuffer
-			g.updateBufferSize(oldBufferInt)
+			g.updateBufferSize(oldBufferInt, i)
 		}
 	}
 	
@@ -286,7 +286,3 @@ func (g *GameServer) createUDPServer() error {
 }
 
 func (g *GameServer) updateBufferSize(oldBufferInt uint32) {
-    for i := range g.GameData.BufferSize {
-        g.GameData.BufferSize[i] = oldBufferInt
-    }
-}
