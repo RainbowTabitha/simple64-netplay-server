@@ -118,14 +118,14 @@ func (g *GameServer) adjustBuffers() uint32 {
 			if countLag == 0 {
 				g.GameData.BufferSize[i] = 1
 			} else {
-				for i := range gameServer.GameData.BufferSize {
-					gameServer.GameData.BufferSize[i] = uint32(bufferSize)
+				for i := range g.GameData.BufferSize {
+					g.GameData.BufferSize[i] = uint32(bufferSize)
 				}
 			}
 		} else {
 			// This line adjusts the buffer size based on the old buffer state
-			for i := range gameServer.GameData.BufferSize {
-				gameServer.GameData.BufferSize[i] = uint32(bufferSize)
+			for i := range g.GameData.BufferSize {
+				g.GameData.BufferSize[i] = uint32(bufferSize)
 			}
 		}
 	}
