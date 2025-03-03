@@ -285,7 +285,7 @@ func (g *GameServer) createUDPServer() error {
 	return nil
 }
 
-func (g *GameServer) updateBufferSize(oldBufferInt int) {
+func (g *GameServer) updateBufferSize(oldBufferInt uint32) {
     for i := range g.GameData.BufferSize {
         g.GameData.BufferSize[i] = oldBufferInt
     }
