@@ -90,23 +90,24 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 
 	// Apply the countLag logic to all players
 	allZeroLag := true // Track if all players have countLag of 0
+	for _, lag := range g.GameData.CountLag {
+		if lag > 0 {
+			allZeroLag = false
+			break
+		}
+	}
+	
 	for i := range g.GameData.BufferSize {
-	    // Apply the countLag logic
-	    countLag = g.GameData.CountLag[i]
-	    if countLag == 0 {
-	        g.GameData.BufferSize[i] = uint32(oldBuffer[i])
-	        allZeroLag = false
-	    }
-
-		// Check if the current player is not behind and if any player has a higher countLag
-		if countLag == 0 && !allZeroLag {
-		    for i := range g.GameData.CountLag {
-		        if g.GameData.CountLag[i] > 0 {
-		            // Slow down the emulator for the current player
-		            g.GameData.BufferSize[playerNumber] = 1
-		            break
-		        }
-		    }
+		countLag := g.GameData.CountLag[i]
+	
+		if !allZeroLag {
+			// If at least one player has lag, freeze those with countLag == 0
+			if countLag == 0 {
+				g.GameData.BufferSize[i] = 1 // Freeze the player
+			}
+		} else {
+			// Restore buffer size when all are zero
+			g.GameData.BufferSize[i] = uint32(oldBuffer[i])
 		}
 	}
 
