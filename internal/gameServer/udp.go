@@ -81,6 +81,35 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	} else {
 		countLag = g.GameData.LeadCount - count
 	}
+
+	// Create a temporary array to store the old values of BufferHealth
+	oldBuffer := make([]uint32, len(g.GameData.BufferSize))
+
+	// Copy current BufferHealth values to oldBufferHealth before modifying
+	copy(oldBuffer, g.GameData.BufferSize)
+
+	// Apply the countLag logic to all players
+	allZeroLag := true // Track if all players have countLag of 0
+	for i := range g.GameData.BufferSize {
+	    // Apply the countLag logic
+	    countLag = g.GameData.CountLag[i]
+	    if countLag == 0 {
+	        g.GameData.BufferSize[i] = uint32(oldBuffer[i])
+	        allZeroLag = false
+	    }
+	}
+
+	// Check if the current player is not behind and if any player has a higher countLag
+	if countLag == 0 && !allZeroLag {
+	    for i := range g.GameData.CountLag {
+	        if g.GameData.CountLag[i] > 0 {
+	            // Slow down the emulator for the current player
+	            g.GameData.BufferSize[playerNumber] = 1
+	            break
+	        }
+	    }
+	}
+
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
 		sendingPlayerNumber = playerNumber
 		buffer[0] = KeyInfoServerGratuitous // client will ignore countLag value in this case
@@ -150,6 +179,7 @@ func (g *GameServer) processUDP(addr *net.UDPAddr, buf []byte) {
 		g.GameDataMutex.Unlock()
 
 		g.GameData.CountLag[sendingPlayerNumber] = countLag
+		
 	} else if buf[0] == CP0Info {
 		if g.GameData.Status&StatusDesync == 0 {
 			viCount := binary.BigEndian.Uint32(buf[1:])
