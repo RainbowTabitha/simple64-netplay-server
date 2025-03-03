@@ -95,7 +95,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 	}
 
-	if sameLag || maxLag < 10 {
+	if sameLag || maxLag < 8 {
 		return 0
 	}
 
@@ -109,7 +109,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 
 		if !allZeroLag {
-			if countLag == 0 {
+			if countLag > 7 {
 				// If the lag is 0, set buffer to 1
 				g.GameData.BufferSize[i] = 1
 			} else {
