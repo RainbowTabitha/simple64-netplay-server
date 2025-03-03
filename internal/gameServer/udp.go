@@ -117,11 +117,11 @@ func (g *GameServer) adjustBuffers() uint32 {
 				g.GameData.BufferSize[i] = 1
 			} else {
 				// Reset buffer size to the original value from oldBuffer
-				g.GameData.BufferSize[i] = oldBuffer[i]
+				g.updateBufferSize(g.GameData.BufferSize[i])
 			}
 		} else {
 			// Reset buffer size to the original value from oldBuffer
-			g.GameData.BufferSize[i] = oldBuffer[i]
+			g.updateBufferSize(g.GameData.BufferSize[i])
 		}
 	}
 	
@@ -286,4 +286,15 @@ func (g *GameServer) createUDPServer() error {
 
 	go g.watchUDP()
 	return nil
+}
+
+func (s *LobbyServer) updateBufferSize(int bufferSize) {
+    // Update the BufferSize for each game server
+    for _, gameServer := range s.GameServers {
+        gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
+        for i := range gameServer.GameData.BufferSize {
+            gameServer.GameData.BufferSize[i] = uint32(bufferSize)
+        }
+        gameServer.GameDataMutex.Unlock() // Unlock after updating
+    }
 }
