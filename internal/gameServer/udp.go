@@ -91,7 +91,7 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	// Apply the countLag logic to all players
 	allZeroLag := true // Assume all players have countLag of 0 initially
 	g.Logger.Info("Checking player countLag values...")
-	
+
 	// Check if any player has countLag > 0
 	for i, lag := range g.GameData.CountLag {
 	    g.Logger.Info("Player status", "playerNumber", i, "countLag", lag)
@@ -99,22 +99,22 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	        allZeroLag = false
 	    }
 	}
-	
+
 	g.Logger.Info("Lag check complete", "allZeroLag", allZeroLag)
-	
+
 	for i := range g.GameData.BufferSize {
 	    countLag := g.GameData.CountLag[i]
 	    oldBufferSize := g.GameData.BufferSize[i]
-	
+
 	    // Log countLag comparison with LeadCount
 	    if countLag > g.GameData.LeadCount {
 	        g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
 	            "count", countLag, "LeadCount", g.GameData.LeadCount, "playerNumber", i)
 	    }
-	
+
 	    if !allZeroLag {
 	        if countLag == 0 {
-	            g.Logger.Warn("Freezing player due to lag mismatch", "playerNumber", i, "oldBufferSize", oldBufferSize)
+	            g.Logger.Info("Freezing player due to lag mismatch", "playerNumber", i, "oldBufferSize", oldBufferSize)
 	            g.GameData.BufferSize[i] = 1 // Freeze the player
 	        } else {
 	            g.Logger.Info("Player continues normally", "playerNumber", i, "bufferSize", oldBufferSize)
