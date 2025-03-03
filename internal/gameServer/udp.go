@@ -7,7 +7,7 @@ import (
 	"math"
 	"net"
 	"time"
-    "globals"
+    "../globals"
 	
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
