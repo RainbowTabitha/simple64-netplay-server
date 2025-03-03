@@ -97,17 +97,17 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	        g.GameData.BufferSize[i] = uint32(oldBuffer[i])
 	        allZeroLag = false
 	    }
-	}
 
-	// Check if the current player is not behind and if any player has a higher countLag
-	if countLag == 0 && !allZeroLag {
-	    for i := range g.GameData.CountLag {
-	        if g.GameData.CountLag[i] > 0 {
-	            // Slow down the emulator for the current player
-	            g.GameData.BufferSize[playerNumber] = 1
-	            break
-	        }
-	    }
+		// Check if the current player is not behind and if any player has a higher countLag
+		if countLag == 0 && !allZeroLag {
+		    for i := range g.GameData.CountLag {
+		        if g.GameData.CountLag[i] > 0 {
+		            // Slow down the emulator for the current player
+		            g.GameData.BufferSize[playerNumber] = 1
+		            break
+		        }
+		    }
+		}
 	}
 
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
@@ -238,7 +238,7 @@ func (g *GameServer) createUDPServer() error {
 	g.Logger.Info("Created UDP server", "port", g.Port)
 
 	g.GameData.PlayerAddresses = make([]*net.UDPAddr, 4) //nolint:gomnd,mnd
-	g.GameData.BufferSize = []uint32{3, 3, 3, 3}
+	g.GameData.BufferSize = []uint32{5, 5, 5, 5}
 	g.GameData.BufferHealth = []int32{-1, -1, -1, -1}
 	g.GameData.Inputs = make([]map[uint32]uint32, 4) //nolint:gomnd,mnd
 	for i := range 4 {
