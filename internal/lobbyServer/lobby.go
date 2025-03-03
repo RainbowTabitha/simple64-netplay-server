@@ -786,7 +786,9 @@ func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
         for i := range gameServer.GameData.BufferSize {
             gameServer.GameData.BufferSize[i] = uint32(bufferSize)
         }
-		gameServer.GameData.LobbyBufferSize = uint32(bufferSize) // Save the lobby buffer size
+		for i := range gameServer.GameData.LobbyBufferSize {
+            gameServer.GameData.LobbyBufferSize[i] = uint32(bufferSize)
+        }
         gameServer.GameDataMutex.Unlock() // Unlock after updating
     }
 }
