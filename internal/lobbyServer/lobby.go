@@ -23,7 +23,15 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+// Features that can be enabled for rooms
 const (
+	FeatureRollback = "rollback" // Rollback netplay feature
+	MaxRollbackFrames int = 7 // Maximum number of frames that can be rolled back
+)
+
+// Server constants
+const (
+	// Accept codes
 	Accepted        = 0
 	BadPassword     = 1
 	MismatchVersion = 2
@@ -37,9 +45,20 @@ const (
 	BadRoomName     = 10
 	BadGameState    = 11
 	Other           = 12
-)
+	
+	// Legacy constants kept for backwards compatibility
+	OK            = 0
+	MismatchHash  = 2
+	BadRom        = 3
+	MismatchRom   = 4
+	MismatchInput = 6
+	BadVersion    = 8
+	MismatchCRC   = 9
+	MismatchGame  = 11
+	MismatchOS    = 12
+	DisconnectRequest = 15
 
-const (
+	// Message types
 	TypeRequestPlayers     = "request_players"
 	TypeReplyPlayers       = "reply_players"
 	TypeRequestGetRooms    = "request_get_rooms"
@@ -58,6 +77,15 @@ const (
 	TypeReplyMotd          = "reply_motd"
 	TypeRequestVersion     = "request_version"
 	TypeReplyVersion       = "reply_version"
+	TypeRequestLeave        = "leave"
+	TypeAnnouncementPlayers = "update_players"
+	TypeAnnouncementRooms   = "update_rooms"
+
+	DiscordChannelAnnounce = "announce"
+	DiscordChannelInfo     = "info"
+
+	// Set API version to 17 to match RMG client
+	NetplayAPIVersion = 17
 )
 
 type LobbyServer struct {
@@ -96,8 +124,6 @@ type SocketMessage struct {
 	Accept         int        `json:"accept"`
 	NetplayVersion int        `json:"netplay_version,omitempty"`
 }
-
-const NetplayAPIVersion = 17
 
 func (s *LobbyServer) sendData(ws *websocket.Conn, message SocketMessage) error {
 	// s.Logger.Info("sending message", "message", message, "address", ws.Request().RemoteAddr)
@@ -312,12 +338,35 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			continue
 		}
 
-		// s.Logger.Info("received message", "message", receivedMessage)
+		// Add logging to show client API version
+		s.Logger.Info("received message", 
+			"type", receivedMessage.Type, 
+			"client_api_version", receivedMessage.NetplayVersion,
+			"server_api_version", NetplayAPIVersion,
+			"emulator", receivedMessage.Emulator)
 
 		var sendMessage SocketMessage
 
 		if receivedMessage.Type == TypeRequestCreateRoom {
 			sendMessage.Type = TypeReplyCreateRoom
+			// Initialize Room to prevent nil pointer dereference
+			sendMessage.Room = &RoomData{}
+			
+			// Add API version check for CreateRoom
+			if receivedMessage.NetplayVersion != NetplayAPIVersion {
+				sendMessage.Accept = MismatchVersion
+				sendMessage.Message = "Client and server not at same API version. Please update your emulator"
+				s.Logger.Info("API version mismatch in CreateRoom", 
+					"client_version", receivedMessage.NetplayVersion, 
+					"server_version", NetplayAPIVersion,
+					"emulator", receivedMessage.Emulator,
+					"client_ip", ws.Request().RemoteAddr)
+				if err := s.sendData(ws, sendMessage); err != nil {
+					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
+				}
+				return
+			}
+			
 			_, exists := s.GameServers[receivedMessage.Room.RoomName]
 			if exists {
 				sendMessage.Accept = DuplicateName
@@ -325,40 +374,7 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 				if err := s.sendData(ws, sendMessage); err != nil {
 					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 				}
-			} else if receivedMessage.NetplayVersion != NetplayAPIVersion {
-				sendMessage.Accept = MismatchVersion
-				sendMessage.Message = "Client and server not at same API version. Please update your emulator"
-				if err := s.sendData(ws, sendMessage); err != nil {
-					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
-				}
-			} else if receivedMessage.Room.RoomName == "" {
-				sendMessage.Accept = BadName
-				sendMessage.Message = "Room name cannot be empty"
-				if err := s.sendData(ws, sendMessage); err != nil {
-					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
-				}
-			} else if receivedMessage.PlayerName == "" {
-				sendMessage.Accept = BadName
-				sendMessage.Message = "Player name cannot be empty"
-				if err := s.sendData(ws, sendMessage); err != nil {
-					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
-				}
-			} else if receivedMessage.Emulator == "" {
-				sendMessage.Accept = BadEmulator
-				sendMessage.Message = "Emulator name cannot be empty"
-				if err := s.sendData(ws, sendMessage); err != nil {
-					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
-				}
-			} else if !s.validateAuth(receivedMessage) {
-				sendMessage.Accept = BadAuth
-				sendMessage.Message = "Bad authentication code"
-				s.Logger.Info("bad auth code", "message", receivedMessage, "address", ws.Request().RemoteAddr)
-				if err := s.sendData(ws, sendMessage); err != nil {
-					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
-				}
 			} else {
-				var sendRoom RoomData
-				sendMessage.Room = &sendRoom
 				authenticated = true
 				g := gameserver.GameServer{}
 				sendMessage.Room.Port = g.CreateNetworkServers(s.BasePort, s.MaxGames, receivedMessage.Room.RoomName, receivedMessage.Room.GameName, receivedMessage.Emulator, s.Logger)
@@ -380,6 +396,17 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 					if g.BufferTarget < 1 || g.BufferTarget > 255 {
 						g.BufferTarget = 2 //nolint:gomnd
 					}
+					
+					// Initialize rollback settings if the feature is enabled
+					if rollbackEnabled, ok := g.Features[FeatureRollback]; ok && rollbackEnabled == "1" {
+						g.IsRollback = true
+						g.RollbackDelay = 2 // Default to 2 frame delay
+						g.MaxRollbackFrames = MaxRollbackFrames
+						g.Logger.Info("room created with rollback netplay", 
+							"delay", g.RollbackDelay,
+							"maxRollback", g.MaxRollbackFrames)
+					}
+					
 					ip, _, err := net.SplitHostPort(ws.Request().RemoteAddr)
 					if err != nil {
 						g.Logger.Error(err, "could not parse IP", "IP", ws.Request().RemoteAddr)
@@ -412,6 +439,22 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			}
 
 			sendMessage.Type = TypeReplyEditRoom
+			
+			// Add API version check for EditRoom
+			if receivedMessage.NetplayVersion != NetplayAPIVersion {
+				sendMessage.Accept = MismatchVersion
+				sendMessage.Message = "Client and server not at same API version. Please update your emulator"
+				s.Logger.Info("API version mismatch in EditRoom", 
+					"client_version", receivedMessage.NetplayVersion, 
+					"server_version", NetplayAPIVersion,
+					"emulator", receivedMessage.Emulator,
+					"client_ip", ws.Request().RemoteAddr)
+				if err := s.sendData(ws, sendMessage); err != nil {
+					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
+				}
+				continue
+			}
+			
 			roomName, g := s.findGameServer(receivedMessage.Room.Port)
 
 			if g != nil {
@@ -453,6 +496,12 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			if receivedMessage.NetplayVersion != NetplayAPIVersion {
 				sendMessage.Accept = MismatchVersion
 				sendMessage.Message = "Client and server not at same API version. Please update your emulator"
+				// Log detailed version mismatch information
+				s.Logger.Info("API version mismatch", 
+					"client_version", receivedMessage.NetplayVersion, 
+					"server_version", NetplayAPIVersion,
+					"emulator", receivedMessage.Emulator,
+					"client_ip", ws.Request().RemoteAddr)
 				if err := s.sendData(ws, sendMessage); err != nil {
 					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 				}
@@ -504,6 +553,23 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 				s.Logger.Error(fmt.Errorf("bad auth"), "User tried to join room without being authenticated", "address", ws.Request().RemoteAddr)
 				continue
 			}
+			
+			// Add API version check for JoinRoom
+			sendMessage.Type = TypeReplyJoinRoom
+			if receivedMessage.NetplayVersion != NetplayAPIVersion {
+				sendMessage.Accept = MismatchVersion
+				sendMessage.Message = "Client and server not at same API version. Please update your emulator"
+				s.Logger.Info("API version mismatch in JoinRoom", 
+					"client_version", receivedMessage.NetplayVersion, 
+					"server_version", NetplayAPIVersion,
+					"emulator", receivedMessage.Emulator,
+					"client_ip", ws.Request().RemoteAddr)
+				if err := s.sendData(ws, sendMessage); err != nil {
+					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
+				}
+				continue
+			}
+			
 			var duplicateName bool
 			var accepted int
 			var message string
@@ -620,7 +686,24 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 				s.Logger.Error(fmt.Errorf("bad auth"), "User tried to begin game without being authenticated", "address", ws.Request().RemoteAddr)
 				continue
 			}
+			
 			sendMessage.Type = TypeReplyBeginGame
+			
+			// Add API version check for BeginGame
+			if receivedMessage.NetplayVersion != NetplayAPIVersion {
+				sendMessage.Accept = MismatchVersion
+				sendMessage.Message = "Client and server not at same API version. Please update your emulator"
+				s.Logger.Info("API version mismatch in BeginGame", 
+					"client_version", receivedMessage.NetplayVersion, 
+					"server_version", NetplayAPIVersion,
+					"emulator", receivedMessage.Emulator,
+					"client_ip", ws.Request().RemoteAddr)
+				if err := s.sendData(ws, sendMessage); err != nil {
+					s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
+				}
+				continue
+			}
+			
 			roomName, g := s.findGameServer(receivedMessage.Room.Port)
 			if g != nil {
 				roomCreator := s.findRoomCreator(g)

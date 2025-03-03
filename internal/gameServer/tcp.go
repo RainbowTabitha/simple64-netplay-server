@@ -272,21 +272,21 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 			if err != nil {
 				g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
 			}
-			regIDBytes := make([]byte, 4) //nolint:gomnd,mnd
+			regIDBytes := make([]byte, 4)
 			_, err = tcpData.Buffer.Read(regIDBytes)
 			if err != nil {
 				g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
 			}
 			regID := binary.BigEndian.Uint32(regIDBytes)
 
-			response := make([]byte, 2) //nolint:gomnd,mnd
+			response := make([]byte, 2)
 			_, ok := g.Registrations[playerNumber]
 			if !ok {
 				if playerNumber > 0 && plugin == 2 { // Only P1 can use mempak
 					plugin = 1
 				}
 
-				g.RegistrationsMutex.Lock() // any player can modify this, which would be in a different thread
+				g.RegistrationsMutex.Lock()
 				g.Registrations[playerNumber] = &Registration{
 					RegID:  regID,
 					Plugin: plugin,
@@ -297,9 +297,22 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 				response[0] = 1
 				g.Logger.Info("registered player", "registration", g.Registrations[playerNumber], "number", playerNumber, "bufferLeft", tcpData.Buffer.Len(), "address", conn.RemoteAddr().String())
 
-				g.GameDataMutex.Lock() // any player can modify this, which would be in a different thread
+				g.GameDataMutex.Lock()
 				g.GameData.PendingPlugin[playerNumber] = plugin
 				g.GameData.PlayerAlive[playerNumber] = true
+				
+				// Initialize rollback settings if enabled
+				if g.IsRollback {
+					// Use smaller buffer size for rollback
+					g.GameData.BufferSize[playerNumber] = uint32(RollbackBufferTarget)
+					// Log rollback settings
+					g.Logger.Info("initialized rollback settings", 
+						"player", playerNumber,
+						"bufferSize", g.GameData.BufferSize[playerNumber],
+						"maxRollback", g.MaxRollbackFrames,
+						"delay", g.RollbackDelay)
+				}
+				
 				g.GameDataMutex.Unlock()
 			} else {
 				if g.Registrations[playerNumber].RegID == regID {
@@ -310,7 +323,8 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 					response[0] = 0
 				}
 			}
-			response[1] = uint8(g.BufferTarget) //nolint:gosec
+			// Set buffer target based on netplay mode
+			response[1] = uint8(g.getBufferTarget())
 			_, err = conn.Write(response)
 			if err != nil {
 				g.Logger.Error(err, "TCP error", "address", conn.RemoteAddr().String())
@@ -360,7 +374,7 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 			tcpData.Request = RequestNone
 		}
 
-		if tcpData.Request >= RequestSendCustomStart && tcpData.Request < RequestSendCustomStart+CustomDataOffset && tcpData.Buffer.Len() >= 4 && tcpData.CustomID == 0 { // get custom data (for example, plugin settings)
+		if tcpData.Request >= RequestSendCustomStart && tcpData.Request < RequestSendCustomStart+CustomDataOffset && tcpData.CustomID == 0 { // get custom data (for example, plugin settings)
 			dataSizeBytes := make([]byte, 4) //nolint:gomnd,mnd
 			_, err = tcpData.Buffer.Read(dataSizeBytes)
 			if err != nil {

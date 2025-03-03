@@ -50,6 +50,22 @@ type GameServer struct {
 	NeedsUpdatePlayers bool
 	NumberOfPlayers    int
 	BufferTarget       int32
+	IsRollback         bool
+	RollbackDelay      int
+	MaxRollbackFrames  int
+}
+
+const (
+	BufferTarget int32 = 3
+	RollbackBufferTarget int32 = 1
+	MaxRollbackFrames = 7
+)
+
+func (g *GameServer) getBufferTarget() int32 {
+	if g.IsRollback {
+		return RollbackBufferTarget
+	}
+	return BufferTarget
 }
 
 func (g *GameServer) CreateNetworkServers(basePort int, maxGames int, roomName string, gameName string, emulatorName string, logger logr.Logger) int {
