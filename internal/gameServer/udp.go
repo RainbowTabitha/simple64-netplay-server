@@ -71,7 +71,82 @@ func (g *GameServer) fillInput(playerNumber byte, count uint32) {
 	}
 }
 
+func (g *GameServer) adjustBuffers() uint32 {
+	// Create a temporary array to store the old values of BufferHealth
+	oldBuffer := make([]uint32, len(g.GameData.BufferSize))
+
+	// Copy current BufferHealth values to oldBufferHealth before modifying
+	copy(oldBuffer, g.GameData.BufferSize)
+	
+	allZeroLag := true
+	maxLag := uint32(0) // Ensure correct type
+	sameLag := true
+
+	g.Logger.Info("Checking player countLag values...")
+
+	// Find max countLag and check if all players have the same countLag
+	firstLag := g.GameData.CountLag[0]
+	for i, lag := range g.GameData.CountLag {
+		g.Logger.Info("Player status", "playerNumber", i, "countLag", lag)
+
+		if lag > 0 {
+			allZeroLag = false
+		}
+
+		if lag > maxLag { // Fix type mismatch
+			maxLag = lag
+		}
+
+		if lag != firstLag {
+			sameLag = false
+		}
+	}
+
+	g.Logger.Info("Lag check complete", "allZeroLag", allZeroLag, "maxLag", maxLag, "sameLag", sameLag)
+
+	// If all players have the same countLag or if maxLag is below 10, do nothing
+	if sameLag || maxLag < 10 {
+		g.Logger.Info("Skipping adjustments", "reason", 
+			func() string {
+				if sameLag {
+					return "all players have the same countLag"
+				}
+				return "max countLag is below 10"
+			}())
+		return 0 // ✅ Ensure proper return value
+	}
+
+	for i := range g.GameData.BufferSize {
+		countLag := g.GameData.CountLag[i]
+		oldBufferSize := g.GameData.BufferSize[i]
+
+		// Log if countLag exceeds LeadCount
+		if countLag > g.GameData.LeadCount {
+			g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
+				"count", countLag, "LeadCount", g.GameData.LeadCount, "playerNumber", i)
+		}
+
+		if !allZeroLag {
+			if countLag == 0 {
+				g.Logger.Info("Freezing player due to lag mismatch", "playerNumber", i, "oldBufferSize", oldBufferSize)
+				g.GameData.BufferSize[i] = 1
+			} else {
+				g.Logger.Info("Player continues normally", "playerNumber", i, "bufferSize", oldBufferSize)
+			}
+		} else {
+			g.Logger.Info("Restoring buffer size", "playerNumber", i, "oldBufferSize", oldBufferSize, "newBufferSize", g.GameData.BufferSize[i])
+			// This line adjusts the buffer size based on the old buffer state
+			g.GameData.BufferSize[i] = uint32(g.GameData.BufferHealth[i]) // Ensure uint32 type
+		}
+	}
+	
+	g.Logger.Info("Buffer size adjustments complete.")
+	return maxLag // ✅ Ensure a valid uint32 return value
+}
+
+
 func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber byte, spectator bool, sendingPlayerNumber byte) uint32 {
+	go g.adjustBuffers()
 	buffer := make([]byte, 508) //nolint:gomnd,mnd
 	var countLag uint32
 	if uintLarger(count, g.GameData.LeadCount) {
@@ -82,77 +157,71 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 		countLag = g.GameData.LeadCount - count
 	}
 
-	// Create a temporary array to store the old values of BufferHealth
-	oldBuffer := make([]uint32, len(g.GameData.BufferSize))
-
-	// Copy current BufferHealth values to oldBufferHealth before modifying
-	copy(oldBuffer, g.GameData.BufferSize)
-
-	// Apply the countLag logic to all players
-	allZeroLag := true
-	maxLag := uint32(0) // Ensure correct type
-	sameLag := true
+	func (g *GameServer) adjustBuffers() uint32 {
+		allZeroLag := true
+		maxLag := uint32(0) // Ensure correct type
+		sameLag := true
 	
-	g.Logger.Info("Checking player countLag values...")
+		g.Logger.Info("Checking player countLag values...")
 	
-	// Find max countLag and check if all players have the same countLag
-	firstLag := g.GameData.CountLag[0]
-	for i, lag := range g.GameData.CountLag {
-		g.Logger.Info("Player status", "playerNumber", i, "countLag", lag)
+		// Find max countLag and check if all players have the same countLag
+		firstLag := g.GameData.CountLag[0]
+		for i, lag := range g.GameData.CountLag {
+			g.Logger.Info("Player status", "playerNumber", i, "countLag", lag)
 	
-		if lag > 0 {
-			allZeroLag = false
-		}
-	
-		if lag > maxLag { // Fix type mismatch
-			maxLag = lag
-		}
-	
-		if lag != firstLag {
-			sameLag = false
-		}
-	}
-	
-	g.Logger.Info("Lag check complete", "allZeroLag", allZeroLag, "maxLag", maxLag, "sameLag", sameLag)
-	
-	// If all players have the same countLag or if maxLag is below 10, do nothing
-	if sameLag || maxLag < 10 {
-		g.Logger.Info("Skipping adjustments", "reason", 
-			func() string {
-				if sameLag {
-					return "all players have the same countLag"
-				}
-				return "max countLag is below 10"
-			}())
-		return // Ensure correct return statement
-	}
-	
-	for i := range g.GameData.BufferSize {
-		countLag := g.GameData.CountLag[i]
-		oldBufferSize := g.GameData.BufferSize[i]
-	
-		// Log if countLag exceeds LeadCount
-		if countLag > g.GameData.LeadCount {
-			g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
-				"count", countLag, "LeadCount", g.GameData.LeadCount, "playerNumber", i)
-		}
-	
-		if !allZeroLag {
-			if countLag == 0 {
-				g.Logger.Info("Freezing player due to lag mismatch", "playerNumber", i, "oldBufferSize", oldBufferSize) // Replaced Warn with Info
-				g.GameData.BufferSize[i] = 1
-			} else {
-				g.Logger.Info("Player continues normally", "playerNumber", i, "bufferSize", oldBufferSize)
+			if lag > 0 {
+				allZeroLag = false
 			}
-		} else {
-			g.Logger.Info("Restoring buffer size", "playerNumber", i, "oldBufferSize", oldBufferSize, "newBufferSize", oldBuffer[i])
-			g.GameData.BufferSize[i] = uint32(oldBuffer[i]) // Ensure uint32 type
-		}
-	}
-	g.Logger.Info("Buffer size adjustments complete.")
 	
-
-
+			if lag > maxLag { // Fix type mismatch
+				maxLag = lag
+			}
+	
+			if lag != firstLag {
+				sameLag = false
+			}
+		}
+	
+		g.Logger.Info("Lag check complete", "allZeroLag", allZeroLag, "maxLag", maxLag, "sameLag", sameLag)
+	
+		// If all players have the same countLag or if maxLag is below 10, do nothing
+		if sameLag || maxLag < 10 {
+			g.Logger.Info("Skipping adjustments", "reason", 
+				func() string {
+					if sameLag {
+						return "all players have the same countLag"
+					}
+					return "max countLag is below 10"
+				}())
+			return 0 // ✅ Ensure proper return value
+		}
+	
+		for i := range g.GameData.BufferSize {
+			countLag := g.GameData.CountLag[i]
+			oldBufferSize := g.GameData.BufferSize[i]
+	
+			// Log if countLag exceeds LeadCount
+			if countLag > g.GameData.LeadCount {
+				g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
+					"count", countLag, "LeadCount", g.GameData.LeadCount, "playerNumber", i)
+			}
+	
+			if !allZeroLag {
+				if countLag == 0 {
+					g.Logger.Info("Freezing player due to lag mismatch", "playerNumber", i, "oldBufferSize", oldBufferSize)
+					g.GameData.BufferSize[i] = 1
+				} else {
+					g.Logger.Info("Player continues normally", "playerNumber", i, "bufferSize", oldBufferSize)
+				}
+			} else {
+				g.Logger.Info("Restoring buffer size", "playerNumber", i, "oldBufferSize", oldBufferSize, "newBufferSize", g.GameData.OldBuffer[i])
+				g.GameData.BufferSize[i] = uint32(g.GameData.OldBuffer[i]) // Ensure uint32 type
+			}
+		}
+		
+		g.Logger.Info("Buffer size adjustments complete.")
+		return maxLag // ✅ Ensure a valid uint32 return value
+	}
 
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
 		sendingPlayerNumber = playerNumber
