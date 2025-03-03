@@ -16,12 +16,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+    "globals"
 
 	"github.com/go-logr/logr"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	gameserver "github.com/simple64/simple64-netplay-server/internal/gameServer"
 	"golang.org/x/net/websocket"
 )
+
+var globalBufferSize int
 
 const (
 	Accepted        = 0
@@ -780,6 +783,7 @@ func getVersion() string {
 
 func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
     bufferSize := int(message.BufferSize) // Convert to int if needed
+	globalBufferSize = bufferSize
     s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
 
     // Update the BufferSize for each game server
