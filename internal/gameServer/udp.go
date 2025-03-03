@@ -89,27 +89,43 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	copy(oldBuffer, g.GameData.BufferSize)
 
 	// Apply the countLag logic to all players
-	allZeroLag := true // Track if all players have countLag of 0
-	for _, lag := range g.GameData.CountLag {
-		if lag > 0 {
-			allZeroLag = false
-			break
-		}
+	allZeroLag := true // Assume all players have countLag of 0 initially
+	g.Logger.Info("Checking player countLag values...")
+	
+	// Check if any player has countLag > 0
+	for i, lag := range g.GameData.CountLag {
+	    g.Logger.Info("Player status", "playerNumber", i, "countLag", lag)
+	    if lag > 0 {
+	        allZeroLag = false
+	    }
 	}
+	
+	g.Logger.Info("Lag check complete", "allZeroLag", allZeroLag)
 	
 	for i := range g.GameData.BufferSize {
-		countLag := g.GameData.CountLag[i]
+	    countLag := g.GameData.CountLag[i]
+	    oldBufferSize := g.GameData.BufferSize[i]
 	
-		if !allZeroLag {
-			// If at least one player has lag, freeze those with countLag == 0
-			if countLag == 0 {
-				g.GameData.BufferSize[i] = 1 // Freeze the player
-			}
-		} else {
-			// Restore buffer size when all are zero
-			g.GameData.BufferSize[i] = uint32(oldBuffer[i])
-		}
+	    // Log countLag comparison with LeadCount
+	    if countLag > g.GameData.LeadCount {
+	        g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
+	            "count", countLag, "LeadCount", g.GameData.LeadCount, "playerNumber", i)
+	    }
+	
+	    if !allZeroLag {
+	        if countLag == 0 {
+	            g.Logger.Warn("Freezing player due to lag mismatch", "playerNumber", i, "oldBufferSize", oldBufferSize)
+	            g.GameData.BufferSize[i] = 1 // Freeze the player
+	        } else {
+	            g.Logger.Info("Player continues normally", "playerNumber", i, "bufferSize", oldBufferSize)
+	        }
+	    } else {
+	        g.Logger.Info("Restoring buffer size", "playerNumber", i, "oldBufferSize", oldBufferSize, "newBufferSize", oldBuffer[i])
+	        g.GameData.BufferSize[i] = uint32(oldBuffer[i]) // Restore when all are 0
+	    }
 	}
+	g.Logger.Info("Buffer size adjustments complete.")
+
 
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
 		sendingPlayerNumber = playerNumber
