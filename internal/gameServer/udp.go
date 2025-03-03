@@ -288,7 +288,7 @@ func (g *GameServer) createUDPServer() error {
 	return nil
 }
 
-func (l *GameServer) updateBufferSize(int bufferSize) {
+func (g *GameServer) updateBufferSize(int bufferSize) {
     // Update the BufferSize for each game server
     for _, gameServer := range s.GameServers {
         gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
