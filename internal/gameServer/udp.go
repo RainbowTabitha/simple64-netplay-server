@@ -288,10 +288,8 @@ func (g *GameServer) createUDPServer() error {
 	return nil
 }
 
-func (g *GameServer) updateBufferSize(int bufferSize) {
-    bufferSize := int(bufferSize)
-    // Update the BufferSize for each game server
-    for i := range gameServer.GameData.BufferSize {
-        gameServer.GameData.BufferSize[i] = uint32(bufferSize)
+func (g *GameServer) updateBufferSize(bufferSize uint32) {
+    for i := range g.GameData.BufferSize {
+        g.GameData.BufferSize[i] = bufferSize
     }
 }
