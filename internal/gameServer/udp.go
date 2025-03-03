@@ -291,11 +291,7 @@ func (g *GameServer) createUDPServer() error {
 func (g *GameServer) updateBufferSize(int bufferSize) {
     bufferSize := int(bufferSize)
     // Update the BufferSize for each game server
-    for _, gameServer := range s.GameServers {
-        gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
-        for i := range gameServer.GameData.BufferSize {
-            gameServer.GameData.BufferSize[i] = uint32(bufferSize)
-        }
-        gameServer.GameDataMutex.Unlock() // Unlock after updating
+    for i := range gameServer.GameData.BufferSize {
+        gameServer.GameData.BufferSize[i] = uint32(bufferSize)
     }
 }
