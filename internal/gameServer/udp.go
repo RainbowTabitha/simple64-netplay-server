@@ -25,6 +25,7 @@ type GameData struct {
 	PlayerAlive     []bool
 	LeadCount       uint32
 	Status          byte
+	LobbyBufferSize uint32
 }
 
 const (
@@ -112,11 +113,11 @@ func (g *GameServer) adjustBuffers() uint32 {
 				g.GameData.BufferSize[i] = 1
 			} else {
 				// Reset buffer size to the original value from oldBuffer
-				g.updateBufferSize(GlobalBufferSize, i)
+				g.updateBufferSize(g.GameData.LobbyBufferSize, i)
 			}
 		} else {
 			// Reset buffer size to the original value from oldBuffer
-			g.updateBufferSize(GlobalBufferSize, i)
+			g.updateBufferSize(g.GameData.LobbyBufferSize, i)
 		}
 	}
 	

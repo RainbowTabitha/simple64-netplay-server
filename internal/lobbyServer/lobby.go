@@ -23,7 +23,6 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-var globalBufferSize int
 
 const (
 	Accepted        = 0
@@ -668,10 +667,7 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			if err := s.sendData(ws, sendMessage); err != nil {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 			}
-		} else if receivedMessage.Type == TypeUpdateBufferSize {
-			s.handleUpdateBufferSize(receivedMessage)
-		} else {
-			s.Logger.Info("not a valid lobby message type", "message", receivedMessage, "address", ws.Request().RemoteAddr)
+F			s.Logger.Info("not a valid lobby message type", "message", receivedMessage, "address", ws.Request().RemoteAddr)
 		}
 	}
 }
@@ -782,7 +778,6 @@ func getVersion() string {
 
 func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
     bufferSize := int(message.BufferSize) // Convert to int if needed
-	globalBufferSize = bufferSize
     s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
 
     // Update the BufferSize for each game server
@@ -791,6 +786,7 @@ func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
         for i := range gameServer.GameData.BufferSize {
             gameServer.GameData.BufferSize[i] = uint32(bufferSize)
         }
+		gameServer.GameData.LobbyBufferSize = uint32(bufferSize) // Save the lobby buffer size
         gameServer.GameDataMutex.Unlock() // Unlock after updating
     }
 }
