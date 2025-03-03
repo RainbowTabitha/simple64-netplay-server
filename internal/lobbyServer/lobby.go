@@ -58,6 +58,7 @@ const (
 	TypeReplyMotd          = "reply_motd"
 	TypeRequestVersion     = "request_version"
 	TypeReplyVersion       = "reply_version"
+	TypeUpdateBufferSize   = "update_buffer_size"
 )
 
 type LobbyServer struct {
@@ -94,6 +95,7 @@ type SocketMessage struct {
 	Rooms          []RoomData `json:"rooms,omitempty"`
 	Accept         int        `json:"accept"`
 	NetplayVersion int        `json:"netplay_version,omitempty"`
+	BufferSize 	   float64 	  `json:"buffer_size"`
 }
 
 const NetplayAPIVersion = 17
