@@ -664,6 +664,8 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			if err := s.sendData(ws, sendMessage); err != nil {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 			}
+		} else if receivedMessage.Type == TypeUpdateBufferSize {
+			s.handleUpdateBufferSize(receivedMessage)
 		} else {
 			s.Logger.Info("not a valid lobby message type", "message", receivedMessage, "address", ws.Request().RemoteAddr)
 		}
@@ -772,4 +774,18 @@ func getVersion() string {
 		}
 	}
 	return fmt.Sprintf("git: %s. api: %d", version, NetplayAPIVersion)
+}
+
+func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
+    bufferSize := int(message.BufferSize) // Convert to int if needed
+    s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
+
+    // Update the BufferSize for each game server
+    for _, gameServer := range s.GameServers {
+        gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
+        for i := range gameServer.GameData.BufferSize {
+            gameServer.GameData.BufferSize[i] = uint32(bufferSize)
+        }
+        gameServer.GameDataMutex.Unlock() // Unlock after updating
+    }
 }
