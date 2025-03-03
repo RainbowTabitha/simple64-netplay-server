@@ -73,10 +73,7 @@ func (g *GameServer) fillInput(playerNumber byte, count uint32) {
 
 func (g *GameServer) adjustBuffers() uint32 {
 	// Create a temporary array to store the old values of BufferHealth
-	oldBuffer := make([]uint32, len(g.GameData.BufferSize))
-
-	// Copy current BufferHealth values to oldBufferHealth before modifying
-	copy(oldBuffer, g.GameData.BufferSize)
+    oldBufferInt := g.GameData.BufferSize[0]
 	
 	allZeroLag := true
 	maxLag := uint32(0) // Ensure correct type
@@ -85,7 +82,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 	// Find max countLag and check if all players have the same countLag
 	firstLag := g.GameData.CountLag[0]
 	for _, lag := range g.GameData.CountLag {
-		if lag > 10 {
+		if lag = 0 {
 			allZeroLag = false
 		}
 
@@ -117,11 +114,11 @@ func (g *GameServer) adjustBuffers() uint32 {
 				g.GameData.BufferSize[i] = 1
 			} else {
 				// Reset buffer size to the original value from oldBuffer
-				g.updateBufferSize(g.GameData.BufferSize[i])
+				g.updateBufferSize(oldBufferInt)
 			}
 		} else {
 			// Reset buffer size to the original value from oldBuffer
-			g.updateBufferSize(g.GameData.BufferSize[i])
+			g.updateBufferSize(oldBufferInt)
 		}
 	}
 	
@@ -288,8 +285,8 @@ func (g *GameServer) createUDPServer() error {
 	return nil
 }
 
-func (g *GameServer) updateBufferSize(bufferSize uint32) {
+func (g *GameServer) updateBufferSize(oldBufferInt int) {
     for i := range g.GameData.BufferSize {
-        g.GameData.BufferSize[i] = bufferSize
+        g.GameData.BufferSize[i] = oldBufferInt
     }
 }
