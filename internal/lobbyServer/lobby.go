@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-    "globals"
 
 	"github.com/go-logr/logr"
 	retryablehttp "github.com/hashicorp/go-retryablehttp"

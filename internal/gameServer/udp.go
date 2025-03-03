@@ -7,7 +7,6 @@ import (
 	"math"
 	"net"
 	"time"
-    "../globals"
 	
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
@@ -74,8 +73,6 @@ func (g *GameServer) fillInput(playerNumber byte, count uint32) {
 
 func (g *GameServer) adjustBuffers() uint32 {
 	// Create a temporary array to store the old values of BufferHealth
-    oldBufferInt := globals.GlobalBufferSize
-
 	allZeroLag := true
 	maxLag := uint32(0) // Ensure correct type
 	sameLag := true
@@ -115,11 +112,11 @@ func (g *GameServer) adjustBuffers() uint32 {
 				g.GameData.BufferSize[i] = 1
 			} else {
 				// Reset buffer size to the original value from oldBuffer
-				g.updateBufferSize(oldBufferInt, i)
+				g.updateBufferSize(GlobalBufferSize, i)
 			}
 		} else {
 			// Reset buffer size to the original value from oldBuffer
-			g.updateBufferSize(oldBufferInt, i)
+			g.updateBufferSize(GlobalBufferSize, i)
 		}
 	}
 	
