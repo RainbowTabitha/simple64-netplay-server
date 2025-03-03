@@ -85,7 +85,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 	// Find max countLag and check if all players have the same countLag
 	firstLag := g.GameData.CountLag[0]
 	for _, lag := range g.GameData.CountLag {
-		if lag > 0 {
+		if lag > 10 {
 			allZeroLag = false
 		}
 
