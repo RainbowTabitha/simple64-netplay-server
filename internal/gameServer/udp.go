@@ -96,7 +96,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 	}
 
-	if sameLag || maxLag < 5 {
+	if sameLag || maxLag < uint32(g.GameData.LobbyBufferSize) {
 		return 0
 	}
 
