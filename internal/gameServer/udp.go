@@ -287,5 +287,5 @@ func (g *GameServer) createUDPServer() error {
 	return nil
 }
 func (g *GameServer) updateBufferSize(oldBufferInt int32, i int) {
-	g.GameData.BufferSize[i] = int32(oldBufferInt)
+	g.GameData.BufferSize[i] = uint32(oldBufferInt)
 }
