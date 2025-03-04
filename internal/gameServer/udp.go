@@ -83,8 +83,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 	for _, lag := range g.GameData.CountLag {
 		if lag > 8 {
 			allZeroLag = true
-		}
-		else {
+		} else {
 			allZeroLag := false
 		}
 
