@@ -661,6 +661,8 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			if err := s.sendData(ws, sendMessage); err != nil {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 			}
+		} else if receivedMessage.Type == TypeUpdateBufferSize {
+			s.handleUpdateBufferSize(receivedMessage)
 		} else if receivedMessage.Type == TypeRequestVersion {
 			sendMessage.Type = TypeReplyVersion
 			sendMessage.Message = getVersion()

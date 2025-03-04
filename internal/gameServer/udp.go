@@ -81,7 +81,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 	// Find max countLag and check if all players have the same countLag
 	firstLag := g.GameData.CountLag[0]
 	for _, lag := range g.GameData.CountLag {
-		if lag > 8 {
+		if lag > 5 {
 			allZeroLag = true
 		} else {
 			allZeroLag = false
@@ -96,7 +96,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 	}
 
-	if sameLag || maxLag < 8 {
+	if sameLag || maxLag < 5 {
 		return 0
 	}
 
@@ -265,6 +265,7 @@ func (g *GameServer) createUDPServer() error {
 
 	g.GameData.PlayerAddresses = make([]*net.UDPAddr, 4) //nolint:gomnd,mnd
 	g.GameData.BufferSize = []uint32{5, 5, 5, 5}
+	g.GameData.LobbyBufferSize = 5
 	g.GameData.BufferHealth = []int32{-1, -1, -1, -1}
 	g.GameData.Inputs = make([]map[uint32]uint32, 4) //nolint:gomnd,mnd
 	for i := range 4 {
