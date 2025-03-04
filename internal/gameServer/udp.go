@@ -114,12 +114,12 @@ func (g *GameServer) adjustBuffers() uint32 {
 				// If the lag is 0, set buffer to 1
 				g.GameData.BufferSize[i] = 1
 			} else {
-				s.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
+				g.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
 				g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 			}
 		} else {
 			// Reset buffer size to the original value from oldBuffer
-			s.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
+			g.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
 			g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 		}
 	}
