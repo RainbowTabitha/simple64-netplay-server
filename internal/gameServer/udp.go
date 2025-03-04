@@ -84,7 +84,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		if lag > 8 {
 			allZeroLag = true
 		} else {
-			allZeroLag := false
+			allZeroLag = false
 		}
 
 		if lag > maxLag { // Fix type mismatch
