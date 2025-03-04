@@ -113,6 +113,12 @@ func (g *GameServer) adjustBuffers() uint32 {
 			if countLag == 0 {
 				// If the lag is 0, set buffer to 1
 				g.GameData.BufferSize[i] = 1
+				// Wait for 2 seconds and then change it back to LobbyBufferSize
+				go func(index int) {
+					time.Sleep(uint32(g.GameData.LobbyBufferSize) * time.Second)
+					g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
+				}(i) // Pass the current index to the goroutine
+}
 			} else {
 				// Reset buffer size to the original value from LobbyBufferSize
 				g.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
