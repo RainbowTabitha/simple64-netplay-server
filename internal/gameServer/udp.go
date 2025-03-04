@@ -116,12 +116,12 @@ func (g *GameServer) adjustBuffers() uint32 {
 			} else {
 				// Reset buffer size to the original value from LobbyBufferSize
 				g.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
-				g.updateBufferSize(int(g.GameData.LobbyBufferSize[i]), i) // Pass the specific LobbyBufferSize for the index
+				g.updateBufferSize(int32(g.GameData.LobbyBufferSize[i]), i) // Pass the specific LobbyBufferSize for the index
 			}
 		} else {
 			// Reset buffer size to the original value from LobbyBufferSize
 			g.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
-			g.updateBufferSize(int(g.GameData.LobbyBufferSize[i]), i) // Pass the specific LobbyBufferSize for the index
+			g.updateBufferSize(int32(g.GameData.LobbyBufferSize[i]), i) // Pass the specific LobbyBufferSize for the index
 		}
 	}
 	
