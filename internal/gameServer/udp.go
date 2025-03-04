@@ -114,12 +114,13 @@ func (g *GameServer) adjustBuffers() uint32 {
 				// If the lag is 0, set buffer to 1
 				g.GameData.BufferSize[i] = 1
 			} else {
-				// Reset buffer size to the original value from oldBuffer
-				g.updateBufferSize(g.GameData.LobbyBufferSize, i)
+				s.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
+				g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 			}
 		} else {
 			// Reset buffer size to the original value from oldBuffer
-			g.updateBufferSize(g.GameData.LobbyBufferSize, i)
+			s.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
+			g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 		}
 	}
 	
@@ -286,6 +287,5 @@ func (g *GameServer) createUDPServer() error {
 	return nil
 }
 func (g *GameServer) updateBufferSize(oldBufferInt int32, i int) {
-	// Set the specific buffer index i to the oldBufferInt value
-	g.GameData.BufferSize[i] = uint32(oldBufferInt)
+	g.GameData.BufferSize[i] = int32(oldBufferInt)
 }
