@@ -25,7 +25,7 @@ type GameData struct {
 	PlayerAlive     []bool
 	LeadCount       uint32
 	Status          byte
-	LobbyBufferSize int32
+	LobbyBufferSize int
 }
 
 const (
