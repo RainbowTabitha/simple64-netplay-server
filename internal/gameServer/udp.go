@@ -25,7 +25,7 @@ type GameData struct {
 	PlayerAlive     []bool
 	LeadCount       uint32
 	Status          byte
-	LobbyBufferSize uint32
+	LobbyBufferSize int32
 }
 
 const (
@@ -74,15 +74,18 @@ func (g *GameServer) fillInput(playerNumber byte, count uint32) {
 
 func (g *GameServer) adjustBuffers() uint32 {
 	// Create a temporary array to store the old values of BufferHealth
-	allZeroLag := true
+	allZeroLag := false
 	maxLag := uint32(0) // Ensure correct type
 	sameLag := true
 
 	// Find max countLag and check if all players have the same countLag
 	firstLag := g.GameData.CountLag[0]
 	for _, lag := range g.GameData.CountLag {
-		if lag > 0 {
-			allZeroLag = false
+		if lag > 8 {
+			allZeroLag = true
+		}
+		else {
+			allZeroLag := false
 		}
 
 		if lag > maxLag { // Fix type mismatch
@@ -98,15 +101,15 @@ func (g *GameServer) adjustBuffers() uint32 {
 		return 0
 	}
 
-	for i := range g.GameData.BufferSize {
+	for i := 0; i < len(g.GameData.BufferSize); i++ {
 		countLag := g.GameData.CountLag[i]
-
+	
 		// Log if countLag exceeds LeadCount
 		if countLag > g.GameData.LeadCount {
 			g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
 				"count", countLag, "LeadCount", g.GameData.LeadCount, "playerNumber", i)
 		}
-
+	
 		if !allZeroLag {
 			if countLag == 0 {
 				// If the lag is 0, set buffer to 1
