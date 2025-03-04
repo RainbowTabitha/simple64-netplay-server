@@ -115,7 +115,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 				g.GameData.BufferSize[i] = 1
 				// Wait for 2 seconds and then change it back to LobbyBufferSize
 				go func(index int) {
-					time.Sleep(time.Duration(g.GameData.LobbyBufferSize[i]) * time.Second) // Use the specific index
+					time.Sleep(time.Duration(g.GameData.LobbyBufferSize) * time.Second) // Use the specific index
 					g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 				}(i) // Pass the current index to the goroutine
 			} else {
