@@ -81,7 +81,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 	// Find max countLag and check if all players have the same countLag
 	firstLag := g.GameData.CountLag[0]
 	for _, lag := range g.GameData.CountLag {
-		if lag > 8 {
+		if lag > 12 {
 			allZeroLag = true
 		} else {
 			allZeroLag = false
@@ -96,7 +96,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 	}
 
-	if sameLag || maxLag < 8 {
+	if sameLag || maxLag < 12 {
 		return 0
 	}
 
@@ -113,20 +113,17 @@ func (g *GameServer) adjustBuffers() uint32 {
 			if countLag == 0 {
 				// If the lag is 0, set buffer to 1
 				g.GameData.BufferSize[i] = 1
-				// Wait for 2 seconds and then change it back to LobbyBufferSize
 				go func(index int) {
-					time.Sleep(time.Duration(g.GameData.LobbyBufferSize) * time.Second) // Use the specific index
+					time.Sleep(time.Duration(g.GameData.LobbyBufferSize) * time.Second)
 					g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 				}(i) // Pass the current index to the goroutine
 			} else {
 				// Reset buffer size to the original value from LobbyBufferSize
-				g.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
-				g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i) // Pass the specific LobbyBufferSize for the index
+				g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 			}
 		} else {
 			// Reset buffer size to the original value from LobbyBufferSize
-			g.Logger.Info("Updating buffer size", "LobbyBufferSize", g.GameData.LobbyBufferSize) // Log the value
-			g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i) // Pass the specific LobbyBufferSize for the index
+			g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
 		}
 	}
 	
