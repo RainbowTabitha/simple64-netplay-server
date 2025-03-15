@@ -93,18 +93,7 @@ func (g *GameServer) ManageBuffer() {
 			g.Logger.Info("done managing buffers")
 			return
 		}
-		// Adjust the buffer size for the lead player(s)
-		for i := range 4 {
-			if g.GameData.BufferHealth[i] != -1 && g.GameData.CountLag[i] == 0 {
-				if g.GameData.BufferHealth[i] > BufferTarget && g.GameData.BufferSize[i] > 0 {
-					g.GameData.BufferSize[i]--
-					// g.Logger.Info("reducing buffer size", "player", i, "bufferSize", g.GameData.BufferSize[i])
-				} else if g.GameData.BufferHealth[i] < BufferTarget {
-					g.GameData.BufferSize[i]++
-					// g.Logger.Info("increasing buffer size", "player", i, "bufferSize", g.GameData.BufferSize[i])
-				}
-			}
-		}
+
 		time.Sleep(time.Second * 5) //nolint:gomnd,mnd
 	}
 }

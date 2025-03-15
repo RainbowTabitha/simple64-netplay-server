@@ -23,6 +23,7 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+
 const (
 	Accepted        = 0
 	BadPassword     = 1
@@ -58,6 +59,7 @@ const (
 	TypeReplyMotd          = "reply_motd"
 	TypeRequestVersion     = "request_version"
 	TypeReplyVersion       = "reply_version"
+	TypeUpdateBufferSize   = "update_buffer_size"
 )
 
 type LobbyServer struct {
@@ -94,6 +96,7 @@ type SocketMessage struct {
 	Rooms          []RoomData `json:"rooms,omitempty"`
 	Accept         int        `json:"accept"`
 	NetplayVersion int        `json:"netplay_version,omitempty"`
+	BufferSize 	   float64 	  `json:"buffer_size"`
 }
 
 const NetplayAPIVersion = 17
@@ -658,13 +661,14 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			if err := s.sendData(ws, sendMessage); err != nil {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 			}
+		} else if receivedMessage.Type == TypeUpdateBufferSize {
+			s.handleUpdateBufferSize(receivedMessage)
 		} else if receivedMessage.Type == TypeRequestVersion {
 			sendMessage.Type = TypeReplyVersion
 			sendMessage.Message = getVersion()
 			if err := s.sendData(ws, sendMessage); err != nil {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 			}
-		} else {
 			s.Logger.Info("not a valid lobby message type", "message", receivedMessage, "address", ws.Request().RemoteAddr)
 		}
 	}
@@ -772,4 +776,19 @@ func getVersion() string {
 		}
 	}
 	return fmt.Sprintf("git: %s. api: %d", version, NetplayAPIVersion)
+}
+
+func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
+    bufferSize := int(message.BufferSize) // Convert to int if needed
+    s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
+
+    // Update the BufferSize for each game server
+    for _, gameServer := range s.GameServers {
+        gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
+        for i := range gameServer.GameData.BufferSize {
+            gameServer.GameData.BufferSize[i] = uint32(bufferSize) // Convert bufferSize to uint32
+        }
+		gameServer.GameData.LobbyBufferSize = bufferSize
+        gameServer.GameDataMutex.Unlock() // Unlock after updating
+    }
 }

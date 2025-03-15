@@ -7,7 +7,7 @@ import (
 	"math"
 	"net"
 	"time"
-
+	
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 )
@@ -25,6 +25,7 @@ type GameData struct {
 	PlayerAlive     []bool
 	LeadCount       uint32
 	Status          byte
+	LobbyBufferSize int
 }
 
 const (
@@ -71,6 +72,65 @@ func (g *GameServer) fillInput(playerNumber byte, count uint32) {
 	}
 }
 
+func (g *GameServer) adjustBuffers() uint32 {
+	// Create a temporary array to store the old values of BufferHealth
+	allZeroLag := false
+	maxLag := uint32(0) // Ensure correct type
+	sameLag := true
+
+	// Find max countLag and check if all players have the same countLag
+	firstLag := g.GameData.CountLag[0]
+	for _, lag := range g.GameData.CountLag {
+		if lag > (g.GameData.BufferSize * 3) {
+			allZeroLag = true
+		} else {
+			allZeroLag = false
+		}
+
+		if lag > maxLag { // Fix type mismatch
+			maxLag = lag
+		}
+
+		if lag != firstLag {
+			sameLag = false
+		}
+	}
+
+	if sameLag || maxLag < (g.GameData.BufferSize * 3) {
+		return 0
+	}
+
+	for i := 0; i < len(g.GameData.BufferSize); i++ {
+		countLag := g.GameData.CountLag[i]
+	
+		// Log if countLag exceeds LeadCount
+		if countLag > g.GameData.LeadCount {
+			g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
+				"count", countLag, "LeadCount", g.GameData.LeadCount, "playerNumber", i)
+		}
+	
+		if !allZeroLag {
+			if countLag == 0 {
+				// If the lag is 0, set buffer to 1
+				g.GameData.BufferSize[i] = 1
+				go func(index int) {
+					time.Sleep(time.Duration(g.GameData.LobbyBufferSize) * time.Second)
+					g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
+				}(i) // Pass the current index to the goroutine
+			} else {
+				// Reset buffer size to the original value from LobbyBufferSize
+				g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
+			}
+		} else {
+			// Reset buffer size to the original value from LobbyBufferSize
+			g.updateBufferSize(int32(g.GameData.LobbyBufferSize), i)
+		}
+	}
+	
+	return maxLag
+}
+
+
 func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber byte, spectator bool, sendingPlayerNumber byte) uint32 {
 	buffer := make([]byte, 508) //nolint:gomnd,mnd
 	var countLag uint32
@@ -81,35 +141,7 @@ func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber 
 	} else {
 		countLag = g.GameData.LeadCount - count
 	}
-
-	// Create a temporary array to store the old values of BufferHealth
-	oldBuffer := make([]uint32, len(g.GameData.BufferSize))
-
-	// Copy current BufferHealth values to oldBufferHealth before modifying
-	copy(oldBuffer, g.GameData.BufferSize)
-
-	// Apply the countLag logic to all players
-	allZeroLag := true // Track if all players have countLag of 0
-	for i := range g.GameData.BufferSize {
-	    // Apply the countLag logic
-	    countLag = g.GameData.CountLag[i]
-	    if countLag == 0 {
-	        g.GameData.BufferSize[i] = uint32(oldBuffer[i])
-	        allZeroLag = false
-	    }
-	}
-
-	// Check if the current player is not behind and if any player has a higher countLag
-	if countLag == 0 && !allZeroLag {
-	    for i := range g.GameData.CountLag {
-	        if g.GameData.CountLag[i] > 0 {
-	            // Slow down the emulator for the current player
-	            g.GameData.BufferSize[playerNumber] = 1
-	            break
-	        }
-	    }
-	}
-
+	g.adjustBuffers()
 	if sendingPlayerNumber == NoRegID { // if the incoming packet was KeyInfoClient, the regID isn't included in the packet
 		sendingPlayerNumber = playerNumber
 		buffer[0] = KeyInfoServerGratuitous // client will ignore countLag value in this case
@@ -238,7 +270,8 @@ func (g *GameServer) createUDPServer() error {
 	g.Logger.Info("Created UDP server", "port", g.Port)
 
 	g.GameData.PlayerAddresses = make([]*net.UDPAddr, 4) //nolint:gomnd,mnd
-	g.GameData.BufferSize = []uint32{3, 3, 3, 3}
+	g.GameData.BufferSize = []uint32{5, 5, 5, 5}
+	g.GameData.LobbyBufferSize = 5
 	g.GameData.BufferHealth = []int32{-1, -1, -1, -1}
 	g.GameData.Inputs = make([]map[uint32]uint32, 4) //nolint:gomnd,mnd
 	for i := range 4 {
@@ -256,4 +289,7 @@ func (g *GameServer) createUDPServer() error {
 
 	go g.watchUDP()
 	return nil
+}
+func (g *GameServer) updateBufferSize(oldBufferInt int32, i int) {
+	g.GameData.BufferSize[i] = uint32(oldBufferInt)
 }
