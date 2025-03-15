@@ -49,6 +49,7 @@ type GameServer struct {
 	Features           map[string]string
 	NeedsUpdatePlayers bool
 	NumberOfPlayers    int
+	BufferTarget       int32
 }
 
 func (g *GameServer) CreateNetworkServers(basePort int, maxGames int, roomName string, gameName string, emulatorName string, logger logr.Logger) int {
@@ -85,17 +86,6 @@ func (g *GameServer) isConnClosed(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), "use of closed network connection")
-}
-
-func (g *GameServer) ManageBuffer() {
-	for {
-		if !g.Running {
-			g.Logger.Info("done managing buffers")
-			return
-		}
-
-		time.Sleep(time.Second * 5) //nolint:gomnd,mnd
-	}
 }
 
 func (g *GameServer) ManagePlayers() {
