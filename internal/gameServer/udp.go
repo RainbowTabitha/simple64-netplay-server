@@ -81,12 +81,12 @@ func (g *GameServer) adjustBuffers() uint32 {
 	// Find max countLag and check if all players have the same countLag
 	firstLag := g.GameData.CountLag[0]
 	for i, lag := range g.GameData.CountLag {
-		if (lag > uint32(math.Ceil(float64(g.GameData.BufferSize[0]) * 2.5))) &&
-		(lag > uint32(math.Ceil(float64(g.GameData.BufferSize[1]) * 2.5))) &&
-		(lag > uint32(math.Ceil(float64(g.GameData.BufferSize[2]) * 2.5))) &&
-		(lag > uint32(math.Ceil(float64(g.GameData.BufferSize[3]) * 2.5))) {
+		if (lag > uint32(math.Ceil(float64(g.GameData.BufferSize[0]) * 3))) &&
+		(lag > uint32(math.Ceil(float64(g.GameData.BufferSize[1]) * 3))) &&
+		(lag > uint32(math.Ceil(float64(g.GameData.BufferSize[2]) * 3))) &&
+		(lag > uint32(math.Ceil(float64(g.GameData.BufferSize[3]) * 3))) {
 		 allZeroLag = false
-	 	} else if lag > uint32(math.Ceil(float64(g.GameData.BufferSize[i]) * 2.5)) {
+	 	} else if lag > uint32(math.Ceil(float64(g.GameData.BufferSize[i]) * 3)) {
 			 allZeroLag = true
 	 	} else {
 			 allZeroLag = false
@@ -101,19 +101,19 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 	}
 
-	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[0]) * 2.5)) {
+	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[0]) * 3)) {
 		return 0
 	}
 
-	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[1]) * 2.5)) {
+	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[1]) * 3)) {
 		return 0
 	}
 
-	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[2]) * 2.5)) {
+	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[2]) * 3)) {
 		return 0
 	}
 
-	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[3]) * 2.5)) {
+	if sameLag || maxLag < uint32(math.Ceil(float64(g.GameData.BufferSize[3]) * 3)) {
 		return 0
 	}
 
