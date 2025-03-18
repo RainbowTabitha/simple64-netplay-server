@@ -4,7 +4,9 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"context"
 	"time"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"golang.org/x/net/websocket"
@@ -24,7 +26,6 @@ type Registration struct {
 }
 
 type GameServer struct {
-	StartTime          time.Time
 	Players            map[string]Client
 	PlayersMutex       sync.Mutex
 	TCPListener        *net.TCPListener
@@ -49,6 +50,26 @@ type GameServer struct {
 	Features           map[string]string
 	NeedsUpdatePlayers bool
 	NumberOfPlayers    int
+	StartTime          time.Time
+	bufferPool         sync.Pool
+	wg                 sync.WaitGroup
+	ctx                context.Context
+	cancel             context.CancelFunc
+	bufferPoolMgr      *bufferPoolManager
+    cancelFunc         context.CancelFunc
+}
+
+func (g *GameServer) getPlayerNumberByID(regID uint32) (byte, error) {
+	var i byte
+	for i = range 4 {
+		v, ok := g.Registrations[i]
+		if ok {
+			if v.RegID == regID {
+				return i, nil
+			}
+		}
+	}
+	return NoRegID, fmt.Errorf("could not find ID")
 }
 
 func (g *GameServer) CreateNetworkServers(basePort int, maxGames int, roomName string, gameName string, emulatorName string, logger logr.Logger) int {
