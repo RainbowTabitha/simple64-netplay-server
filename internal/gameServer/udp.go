@@ -28,7 +28,7 @@ const (
 	DisconnectTimeoutS        = 30
 	NoRegID                   = 255
 	InputDataMax       uint32 = 5000
-	CS4                       = 24
+	CS4                       = 64
 	
 	// Buffer sizes
 	defaultUDPReadBuffer  = 1500
