@@ -144,7 +144,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 		
 		// Check if any player has lag exceeding threshold
-		threshold := uint32(math.Ceil(float64(bufferSizes[i]) * 2.5))
+		threshold := uint32(20)
 		if lag > threshold {
 			allPlayersBelowThreshold = false
 		}
