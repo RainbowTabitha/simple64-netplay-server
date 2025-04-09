@@ -781,6 +781,12 @@ func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
     bufferSize := int(message.BufferSize) // Convert to int if needed
     s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
 
+    // Check if Room is nil before accessing its fields
+    if message.Room == nil {
+        s.Logger.Error(fmt.Errorf("invalid message"), "room data is missing")
+        return
+    }
+
     // Find the game server based on the port in the message
     _, gameServer := s.findGameServer(message.Room.Port)
     if gameServer != nil {
