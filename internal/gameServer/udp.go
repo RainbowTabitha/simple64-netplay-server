@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"math"
 	"net"
 	"sync"
 	"time"
@@ -132,7 +131,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 	allPlayersBelowThreshold := true
 
 	// First pass: collect information about lags
-	for i, lag := range countLags {
+	for _, lag := range countLags {
 		// Track maximum lag
 		if lag > maxLag {
 			maxLag = lag
