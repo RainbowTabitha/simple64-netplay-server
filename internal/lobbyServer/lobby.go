@@ -781,13 +781,16 @@ func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
     bufferSize := int(message.BufferSize) // Convert to int if needed
     s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
 
-    // Update the BufferSize for each game server
-    for _, gameServer := range s.GameServers {
+    // Find the game server based on the port in the message
+    _, gameServer := s.findGameServer(message.Room.Port)
+    if gameServer != nil {
         gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
         for i := range gameServer.GameData.BufferSize {
             gameServer.GameData.BufferSize[i] = uint32(bufferSize) // Convert bufferSize to uint32
         }
-		gameServer.GameData.LobbyBufferSize = bufferSize
+        gameServer.GameData.LobbyBufferSize = bufferSize
         gameServer.GameDataMutex.Unlock() // Unlock after updating
+    } else {
+        s.Logger.Error(fmt.Errorf("could not find game server"), "server not found", "port", message.Room.Port)
     }
 }
