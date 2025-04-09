@@ -144,7 +144,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		}
 		
 		// Check if any player has lag exceeding threshold
-		threshold := uint32(math.Ceil(float64(bufferSizes[i]) * 3))
+		threshold := uint32(math.Ceil(float64(bufferSizes[i]) * 2.5))
 		if lag > threshold {
 			allPlayersBelowThreshold = false
 		}
@@ -168,7 +168,7 @@ func (g *GameServer) adjustBuffers() uint32 {
 		if !allPlayersBelowThreshold {
 			if countLag == 0 {
 				// If the lag is 0, set buffer to 1
-				g.updateBufferSize(1, i)
+				g.updateBufferSize(2, i)
 				
 				// Use a background goroutine with cleanup capability
 				if g.bufferPoolMgr != nil {
