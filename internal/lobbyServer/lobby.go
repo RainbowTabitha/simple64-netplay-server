@@ -23,7 +23,6 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-
 const (
 	Accepted        = 0
 	BadPassword     = 1
@@ -74,13 +73,13 @@ type LobbyServer struct {
 }
 
 type RoomData struct {
-	Features     map[string]string `json:"features"`
-	GameName     string            `json:"game_name"`
-	Protected    bool              `json:"protected"`
-	Password     string            `json:"password,omitempty"`
-	RoomName     string            `json:"room_name"`
-	MD5          string            `json:"MD5"`
-	Port         int               `json:"port"`
+	Features  map[string]string `json:"features"`
+	GameName  string            `json:"game_name"`
+	Protected bool              `json:"protected"`
+	Password  string            `json:"password,omitempty"`
+	RoomName  string            `json:"room_name"`
+	MD5       string            `json:"MD5"`
+	Port      int               `json:"port"`
 }
 
 type SocketMessage struct {
@@ -96,7 +95,7 @@ type SocketMessage struct {
 	Rooms          []RoomData `json:"rooms,omitempty"`
 	Accept         int        `json:"accept"`
 	NetplayVersion int        `json:"netplay_version,omitempty"`
-	BufferSize 	   float64 	  `json:"buffer_size"`
+	BufferSize     float64    `json:"buffer_size"`
 }
 
 const NetplayAPIVersion = 17
@@ -661,7 +660,7 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
 			}
 		} else if receivedMessage.Type == TypeUpdateBufferSize {
-			s.handleUpdateBufferSize(receivedMessage)
+			s.handleUpdateBufferSize(receivedMessage, ws)
 		} else if receivedMessage.Type == TypeRequestVersion {
 			sendMessage.Type = TypeReplyVersion
 			sendMessage.Message = getVersion()
@@ -777,26 +776,92 @@ func getVersion() string {
 	return fmt.Sprintf("git: %s. api: %d", version, NetplayAPIVersion)
 }
 
-func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage) {
-    bufferSize := int(message.BufferSize) // Convert to int if needed
-    s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
+func (s *LobbyServer) handleUpdateBufferSize(message SocketMessage, ws *websocket.Conn) {
+	bufferSize := int(message.BufferSize) // Convert to int if needed
+	s.Logger.Info("Buffer size updated", "newBufferSize", bufferSize)
 
-    // Check if Room is nil before accessing its fields
-    if message.Room == nil {
-        s.Logger.Error(fmt.Errorf("invalid message"), "room data is missing")
-        return
-    }
+	// Find the game server that has this WebSocket connection
+	var activeGameServer *gameserver.GameServer
+	var playerIndex int = -1
+	for _, gameServer := range s.GameServers {
+		for name, player := range gameServer.Players {
+			if player.Socket == ws {
+				activeGameServer = gameServer
+				// Find player index
+				for i := range gameServer.Players {
+					if i == name {
+						playerIndex = player.Number
+						break
+					}
+				}
+				break
+			}
+		}
+		if activeGameServer != nil {
+			break
+		}
+	}
 
-    // Find the game server based on the port in the message
-    _, gameServer := s.findGameServer(message.Room.Port)
-    if gameServer != nil {
-        gameServer.GameDataMutex.Lock() // Lock to prevent concurrent access
-        for i := range gameServer.GameData.BufferSize {
-            gameServer.GameData.BufferSize[i] = uint32(bufferSize) // Convert bufferSize to uint32
-        }
-        gameServer.GameData.LobbyBufferSize = bufferSize
-        gameServer.GameDataMutex.Unlock() // Unlock after updating
-    } else {
-        s.Logger.Error(fmt.Errorf("could not find game server"), "server not found", "port", message.Room.Port)
-    }
+	if activeGameServer != nil && playerIndex >= 0 {
+		activeGameServer.GameDataMutex.Lock()
+		defer activeGameServer.GameDataMutex.Unlock()
+
+		// Check if this player is getting too far ahead
+		minBufferHealth := int32(math.MaxInt32)
+		for _, health := range activeGameServer.GameData.BufferHealth {
+			if health < minBufferHealth {
+				minBufferHealth = health
+			}
+		}
+
+		currentBufferHealth := activeGameServer.GameData.BufferHealth[playerIndex]
+
+		// More aggressive throttling for high buffer health values
+		if currentBufferHealth > 20 { // If more than 20 frames ahead
+			// Severe throttling - reduce by 50%
+			bufferSize = int(float64(bufferSize) * 0.5)
+			s.Logger.Info("Severe throttling due to high buffer health", "player", playerIndex, "bufferHealth", currentBufferHealth, "bufferSize", bufferSize)
+
+			// Trigger rollback if available
+			if len(activeGameServer.GameData.SyncValues) > 0 {
+				// Find the most recent stable state (lowest frame count)
+				var rollbackFrame uint32 = math.MaxUint32
+				for frame := range activeGameServer.GameData.SyncValues {
+					if frame < rollbackFrame {
+						rollbackFrame = frame
+					}
+				}
+
+				if rollbackFrame != math.MaxUint32 {
+					// Send rollback command to all players
+					rollbackMsg := SocketMessage{
+						Type:    "rollback",
+						Message: fmt.Sprintf("Rolling back to frame %d", rollbackFrame),
+					}
+
+					for _, player := range activeGameServer.Players {
+						if player.InLobby {
+							if err := s.sendData(player.Socket, rollbackMsg); err != nil {
+								s.Logger.Error(err, "failed to send rollback message", "player", player.Number)
+							}
+						}
+					}
+
+					s.Logger.Info("Triggered rollback", "frame", rollbackFrame, "player", playerIndex)
+				}
+			}
+		} else if currentBufferHealth > minBufferHealth+5 {
+			// Normal throttling - reduce by 30%
+			bufferSize = int(float64(bufferSize) * 0.7)
+			s.Logger.Info("Throttling player", "player", playerIndex, "bufferHealth", currentBufferHealth, "bufferSize", bufferSize)
+		}
+
+		// Update buffer size for all players to maintain sync
+		for i := range activeGameServer.GameData.BufferSize {
+			activeGameServer.GameData.BufferSize[i] = uint32(bufferSize)
+		}
+		activeGameServer.GameData.LobbyBufferSize = bufferSize
+	} else {
+		s.Logger.Error(fmt.Errorf("could not find active game server"), "no active game found for connection")
+	}
 }
