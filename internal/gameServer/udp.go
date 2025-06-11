@@ -77,6 +77,98 @@ func (g *GameServer) fillInput(playerNumber byte, count uint32) InputData {
 	return input
 }
 
+// adjustBuffers optimizes buffer sizes based on player lag
+func (g *GameServer) adjustBuffers() uint32 {
+	g.GameDataMutex.Lock()
+	// Make local copies of needed data to minimize lock duration
+	countLags := make([]uint32, len(g.GameData.CountLag))
+	bufferSizes := make([]uint32, len(g.GameData.BufferSize))
+	leadCount := g.GameData.LeadCount
+	lobbyBufferSize := g.GameData.LobbyBufferSize
+	copy(countLags, g.GameData.CountLag)
+	copy(bufferSizes, g.GameData.BufferSize)
+	g.GameDataMutex.Unlock()
+
+	maxLag := uint32(0)
+	firstLag := countLags[0]
+	sameLag := true
+	allPlayersBelowThreshold := true
+
+	// First pass: collect information about lags
+	for _, lag := range countLags {
+		// Track maximum lag
+		if lag > maxLag {
+			maxLag = lag
+		}
+		
+		// Check if all lags are the same
+		if lag != firstLag {
+			sameLag = false
+		}
+		
+		// Check if any player has lag exceeding threshold
+		threshold := uint32(20)
+		if lag > threshold {
+			allPlayersBelowThreshold = false
+		}
+	}
+
+	// Early return if no adjustment needed
+	if sameLag || allPlayersBelowThreshold {
+		return 0
+	}
+
+	// Adjust buffer sizes based on lag conditions
+	for i := 0; i < len(bufferSizes); i++ {
+		countLag := countLags[i]
+	
+		// Log if countLag exceeds LeadCount
+		if countLag > leadCount {
+			g.Logger.Error(fmt.Errorf("bad count lag"), "count is larger than LeadCount",
+				"count", countLag, "LeadCount", leadCount, "playerNumber", i)
+		}
+	
+		if !allPlayersBelowThreshold {
+			if countLag == 0 {
+				// If the lag is 0, set buffer to 1
+				g.updateBufferSize(2, i)
+				
+				// Use a background goroutine with cleanup capability
+				if g.bufferPoolMgr != nil {
+					bufferCtx, bufferCancel := context.WithCancel(g.bufferPoolMgr.ctx)
+					g.bufferPoolMgr.wg.Add(1)
+					
+					go func(ctx context.Context, index int, duration int, cancel context.CancelFunc) {
+						defer g.bufferPoolMgr.wg.Done()
+						defer cancel()
+						
+						select {
+						case <-ctx.Done():
+							return
+						case <-time.After(time.Duration(duration) * time.Second):
+							g.updateBufferSize(int32(duration), index)
+						}
+					}(bufferCtx, i, lobbyBufferSize, bufferCancel)
+				} else {
+					// Fallback to original implementation if buffer pool manager not initialized
+					go func(index int) {
+						time.Sleep(time.Duration(lobbyBufferSize) * time.Second)
+						g.updateBufferSize(int32(lobbyBufferSize), i)
+					}(i)
+				}
+			} else {
+				// Reset buffer size to the original value from LobbyBufferSize
+				g.updateBufferSize(int32(lobbyBufferSize), i)
+			}
+		} else {
+			// Reset buffer size to the original value from LobbyBufferSize
+			g.updateBufferSize(int32(lobbyBufferSize), i)
+		}
+	}
+	
+	return maxLag
+}
+
 func (g *GameServer) sendUDPInput(count uint32, addr *net.UDPAddr, playerNumber byte, spectator bool, sendingPlayerNumber byte) uint32 {
 	var countLag uint32
 	if uintLarger(count, g.GameData.LeadCount) {
