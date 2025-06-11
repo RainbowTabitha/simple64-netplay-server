@@ -58,6 +58,8 @@ const (
 	TypeReplyMotd          = "reply_motd"
 	TypeRequestVersion     = "request_version"
 	TypeReplyVersion       = "reply_version"
+	TypeBufferTarget       = "update_buffer_size"
+
 )
 
 type LobbyServer struct {
@@ -95,6 +97,7 @@ type SocketMessage struct {
 	Rooms          []RoomData `json:"rooms,omitempty"`
 	Accept         int        `json:"accept"`
 	NetplayVersion int        `json:"netplay_version,omitempty"`
+	BufferSize     int32      `json:"buffer_size,omitempty"`
 }
 
 const NetplayAPIVersion = 17
@@ -680,6 +683,23 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 			sendMessage.Message = getVersion()
 			if err := s.sendData(ws, sendMessage); err != nil {
 				s.Logger.Error(err, "failed to send message", "message", sendMessage, "address", ws.Request().RemoteAddr)
+			}
+		} else if receivedMessage.Type == TypeBufferTarget {
+			_, g := s.findGameServer(receivedMessage.Room.Port)
+			if g != nil {
+				roomCreator := s.findRoomCreator(g)
+				if roomCreator.Socket != ws {
+					s.Logger.Error(fmt.Errorf("bad player"), "Only room creator can update buffer target", "address", ws.Request().RemoteAddr)
+					continue
+				}
+				if g.Running {
+					s.Logger.Error(fmt.Errorf("bad game state"), "Cannot update buffer target while game is running", "address", ws.Request().RemoteAddr)
+					continue
+				}
+				g.BufferTarget = receivedMessage.BufferSize
+				g.Logger.Info("updated buffer target", "buffer_target", g.BufferTarget)
+			} else {
+				s.Logger.Error(fmt.Errorf("could not find game server"), "server not found", "message", receivedMessage, "address", ws.Request().RemoteAddr)
 			}
 		} else {
 			s.Logger.Info("not a valid lobby message type", "message", receivedMessage, "address", ws.Request().RemoteAddr)
