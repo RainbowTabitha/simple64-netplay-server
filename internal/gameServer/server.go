@@ -1,6 +1,8 @@
 package gameserver
 
 import (
+	"encoding/binary"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -50,10 +52,39 @@ type GameServer struct {
 	NeedsUpdatePlayers bool
 	NumberOfPlayers    int
 	BufferTarget       int32
+	// Save state synchronization fields
+	SaveStateData      map[uint32][]byte // Store save state data by ID
+	SaveStateMutex     sync.Mutex
+	SaveStateEnabled   bool
+	SaveStateInterval  int
+	MaxSaveStateSize   int
+	// TCP connection tracking for broadcasting
+	ActiveConnections  map[*net.TCPConn]bool
+	ConnectionsMutex   sync.Mutex
+	// Player connection tracking
+	PlayerConnections  map[byte]*net.TCPConn // Map player number to TCP connection
 }
 
-func (g *GameServer) CreateNetworkServers(basePort int, maxGames int, roomName string, gameName string, emulatorName string, logger logr.Logger) int {
+func (g *GameServer) CreateNetworkServers(basePort int, maxGames int, roomName string, gameName string, emulatorName string, logger logr.Logger, saveStateEnabled bool, saveStateInterval int, maxSaveStateSize int) int {
 	g.Logger = logger.WithValues("game", gameName, "room", roomName, "emulator", emulatorName)
+	
+	// Initialize save state fields
+	g.SaveStateData = make(map[uint32][]byte)
+	g.SaveStateEnabled = saveStateEnabled
+	g.SaveStateInterval = saveStateInterval
+	g.MaxSaveStateSize = maxSaveStateSize
+	
+	// Log save state configuration
+	if g.SaveStateEnabled {
+		g.Logger.Info("save state synchronization enabled", "interval", g.SaveStateInterval, "maxSize", g.MaxSaveStateSize)
+	} else {
+		g.Logger.Info("save state synchronization disabled")
+	}
+	
+	// Initialize connection tracking
+	g.ActiveConnections = make(map[*net.TCPConn]bool)
+	g.PlayerConnections = make(map[byte]*net.TCPConn)
+	
 	port := g.createTCPServer(basePort, maxGames)
 	if port == 0 {
 		return port
@@ -79,6 +110,19 @@ func (g *GameServer) CloseServers() {
 	} else if err == nil {
 		g.Logger.Info("TCP server closed")
 	}
+	
+	// Clean up save state data
+	g.SaveStateMutex.Lock()
+	g.SaveStateData = make(map[uint32][]byte)
+	g.SaveStateMutex.Unlock()
+	
+	// Clean up active connections
+	g.ConnectionsMutex.Lock()
+	g.ActiveConnections = make(map[*net.TCPConn]bool)
+	g.PlayerConnections = make(map[byte]*net.TCPConn)
+	g.ConnectionsMutex.Unlock()
+	
+	g.Logger.Info("cleaned up save state data and connections")
 }
 
 func (g *GameServer) isConnClosed(err error) bool {
@@ -163,5 +207,113 @@ func (g *GameServer) ManagePlayers() {
 			return
 		}
 		time.Sleep(time.Second * DisconnectTimeoutS)
+	}
+}
+
+// Save state synchronization functions
+func (g *GameServer) storeSaveState(id uint32, data []byte) {
+	if !g.SaveStateEnabled {
+		return
+	}
+	
+	g.SaveStateMutex.Lock()
+	defer g.SaveStateMutex.Unlock()
+	
+	// Check size limit
+	if len(data) > g.MaxSaveStateSize {
+		g.Logger.Error(fmt.Errorf("save state too large"), "save state exceeds size limit", 
+			"size", len(data), "limit", g.MaxSaveStateSize, "id", id)
+		return
+	}
+	
+	// Store the save state data
+	g.SaveStateData[id] = make([]byte, len(data))
+	copy(g.SaveStateData[id], data)
+	
+	// Keep only the most recent save state to save memory
+	// Remove old save states (keep only the current one)
+	for oldID := range g.SaveStateData {
+		if oldID != id {
+			delete(g.SaveStateData, oldID)
+		}
+	}
+	
+	g.Logger.Info("stored save state", "id", id, "size", len(data))
+}
+
+func (g *GameServer) getSaveState(id uint32) ([]byte, bool) {
+	g.SaveStateMutex.Lock()
+	defer g.SaveStateMutex.Unlock()
+	
+	data, exists := g.SaveStateData[id]
+	if !exists {
+		return nil, false
+	}
+	
+	// Return a copy of the data
+	result := make([]byte, len(data))
+	copy(result, data)
+	return result, true
+}
+
+func (g *GameServer) broadcastSaveState(id uint32, data []byte) {
+	if !g.SaveStateEnabled {
+		return
+	}
+	
+	g.Logger.Info("broadcasting save state", "id", id, "size", len(data))
+	
+	// Create the packet: [packet_type][save_state_id][data]
+	packet := make([]byte, 5+len(data))
+	packet[0] = RequestSendSaveState
+	binary.BigEndian.PutUint32(packet[1:5], id)
+	copy(packet[5:], data)
+	
+	// Broadcast to all active TCP connections except the host (player 0)
+	g.ConnectionsMutex.Lock()
+	defer g.ConnectionsMutex.Unlock()
+	
+	broadcastCount := 0
+	for conn := range g.ActiveConnections {
+		// Skip the host player's connection
+		if conn == g.PlayerConnections[0] {
+			continue
+		}
+		
+		_, err := conn.Write(packet)
+		if err != nil {
+			g.Logger.Error(err, "failed to broadcast save state to connection", "id", id, "address", conn.RemoteAddr().String())
+			// Remove failed connection
+			delete(g.ActiveConnections, conn)
+		} else {
+			broadcastCount++
+		}
+	}
+	
+	g.Logger.Info("broadcasted save state", "id", id, "size", len(data), "recipients", broadcastCount)
+}
+
+func (g *GameServer) sendSaveStateToClient(conn *net.TCPConn, id uint32) {
+	if !g.SaveStateEnabled {
+		return
+	}
+	
+	data, exists := g.getSaveState(id)
+	if !exists {
+		g.Logger.Error(fmt.Errorf("save state not found"), "requested save state not available", "id", id)
+		return
+	}
+	
+	// Create the packet: [packet_type][save_state_id][data]
+	packet := make([]byte, 5+len(data))
+	packet[0] = RequestSendSaveState
+	binary.BigEndian.PutUint32(packet[1:5], id)
+	copy(packet[5:], data)
+	
+	_, err := conn.Write(packet)
+	if err != nil {
+		g.Logger.Error(err, "failed to send save state to client", "id", id, "address", conn.RemoteAddr().String())
+	} else {
+		g.Logger.Info("sent save state to client", "id", id, "size", len(data), "address", conn.RemoteAddr().String())
 	}
 }

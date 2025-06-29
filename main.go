@@ -34,6 +34,9 @@ func main() {
 	motd := flag.String("motd", "", "MOTD message to display to clients")
 	maxGames := flag.Int("max-games", 10, "Maximum number of concurrent games")
 	enableAuth := flag.Bool("enable-auth", false, "Enable client authentication")
+	enableSaveStateSync := flag.Bool("enable-savestate-sync", true, "Enable save state synchronization")
+	saveStateInterval := flag.Int("savestate-interval", 90, "Save state synchronization interval in frames")
+	maxSaveStateSize := flag.Int("max-savestate-size", 4194304, "Maximum save state size in bytes (4MB)")
 	flag.Parse()
 
 	zapLog, err := newZap(*logPath)
@@ -59,6 +62,9 @@ func main() {
 		Motd:             *motd,
 		MaxGames:         *maxGames,
 		EnableAuth:       *enableAuth,
+		SaveStateEnabled: *enableSaveStateSync,
+		SaveStateInterval: *saveStateInterval,
+		MaxSaveStateSize: *maxSaveStateSize,
 	}
 	go s.LogServerStats()
 	if err := s.RunSocketServer(DefaultBasePort); err != nil {

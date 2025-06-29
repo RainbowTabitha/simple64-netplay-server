@@ -69,6 +69,9 @@ type LobbyServer struct {
 	MaxGames         int
 	DisableBroadcast bool
 	EnableAuth       bool
+	SaveStateEnabled   bool
+	SaveStateInterval  int
+	MaxSaveStateSize   int
 }
 
 type RoomData struct {
@@ -361,7 +364,7 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 				sendMessage.Room = &sendRoom
 				authenticated = true
 				g := gameserver.GameServer{}
-				sendMessage.Room.Port = g.CreateNetworkServers(s.BasePort, s.MaxGames, receivedMessage.Room.RoomName, receivedMessage.Room.GameName, receivedMessage.Emulator, s.Logger)
+				sendMessage.Room.Port = g.CreateNetworkServers(s.BasePort, s.MaxGames, receivedMessage.Room.RoomName, receivedMessage.Room.GameName, receivedMessage.Emulator, s.Logger, s.SaveStateEnabled, s.SaveStateInterval, s.MaxSaveStateSize)
 				if sendMessage.Room.Port == 0 {
 					sendMessage.Accept = Other
 					sendMessage.Message = "Failed to create room"
@@ -653,6 +656,9 @@ func (s *LobbyServer) wsHandler(ws *websocket.Conn) {
 					g.Running = true
 					g.StartTime = time.Now()
 					g.Logger.Info("starting game", "buffer_target", g.BufferTarget, "time", g.StartTime.Format(time.RFC3339))
+					if g.SaveStateEnabled {
+						g.Logger.Info("save state synchronization active", "interval", g.SaveStateInterval, "maxSize", g.MaxSaveStateSize)
+					}
 					g.NumberOfPlayers = len(g.Players)
 					sendMessage.Accept = Accepted
 					go s.watchGameServer(roomName, g)

@@ -35,6 +35,8 @@ const (
 	RequestGetRegistration     = 6
 	RequestDisconnectNotice    = 7
 	RequestReceiveSaveWithSize = 8
+	RequestSendSaveState       = 9  // TCP_SEND_SAVESTATE
+	RequestReceiveSaveState    = 10 // TCP_RECEIVE_SAVESTATE
 	RequestSendCustomStart     = 64 // 64-127 are custom data send slots, 128-191 are custom data receive slots
 	CustomDataOffset           = 64
 )
@@ -146,7 +148,18 @@ func (g *GameServer) tcpSendReg(conn *net.TCPConn) {
 }
 
 func (g *GameServer) processTCP(conn *net.TCPConn) {
-	defer conn.Close() //nolint:errcheck
+	defer func() {
+		// Remove connection from active connections when it closes
+		g.ConnectionsMutex.Lock()
+		delete(g.ActiveConnections, conn)
+		g.ConnectionsMutex.Unlock()
+		conn.Close() //nolint:errcheck
+	}()
+
+	// Add connection to active connections
+	g.ConnectionsMutex.Lock()
+	g.ActiveConnections[conn] = true
+	g.ConnectionsMutex.Unlock()
 
 	tcpData := &TCPData{Request: RequestNone}
 	incomingBuffer := make([]byte, 1500)
@@ -294,6 +307,11 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 				}
 				g.RegistrationsMutex.Unlock()
 
+				// Track which connection belongs to which player
+				g.ConnectionsMutex.Lock()
+				g.PlayerConnections[playerNumber] = conn
+				g.ConnectionsMutex.Unlock()
+
 				response[0] = 1
 				g.Logger.Info("registered player", "registration", g.Registrations[playerNumber], "number", playerNumber, "bufferLeft", tcpData.Buffer.Len(), "address", conn.RemoteAddr().String())
 
@@ -345,6 +363,11 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 						delete(g.Registrations, i)
 						g.RegistrationsMutex.Unlock()
 
+						// Clean up player connection tracking
+						g.ConnectionsMutex.Lock()
+						delete(g.PlayerConnections, i)
+						g.ConnectionsMutex.Unlock()
+
 						for k, v := range g.Players {
 							if v.Number == int(i) {
 								g.PlayersMutex.Lock()
@@ -358,6 +381,55 @@ func (g *GameServer) processTCP(conn *net.TCPConn) {
 					}
 				}
 			}
+			tcpData.Request = RequestNone
+		}
+
+		// Save state synchronization handling
+		if tcpData.Request == RequestSendSaveState && tcpData.Buffer.Len() >= 4 { // Host is sending a save state
+			// Read save state ID
+			saveStateIDBytes := make([]byte, 4)
+			_, err = tcpData.Buffer.Read(saveStateIDBytes)
+			if err != nil {
+				g.Logger.Error(err, "TCP error reading save state ID", "address", conn.RemoteAddr().String())
+				tcpData.Request = RequestNone
+				continue
+			}
+			saveStateID := binary.BigEndian.Uint32(saveStateIDBytes)
+			
+			// Read save state data (all remaining data in buffer)
+			saveStateData := make([]byte, tcpData.Buffer.Len())
+			_, err = tcpData.Buffer.Read(saveStateData)
+			if err != nil {
+				g.Logger.Error(err, "TCP error reading save state data", "address", conn.RemoteAddr().String())
+				tcpData.Request = RequestNone
+				continue
+			}
+			
+			// Store the save state
+			g.storeSaveState(saveStateID, saveStateData)
+			
+			// Broadcast to all non-host players
+			g.broadcastSaveState(saveStateID, saveStateData)
+			
+			g.Logger.Info("processed save state from host", "id", saveStateID, "size", len(saveStateData), "address", conn.RemoteAddr().String())
+			tcpData.Request = RequestNone
+		}
+
+		if tcpData.Request == RequestReceiveSaveState && tcpData.Buffer.Len() >= 4 { // Non-host player is requesting a save state
+			// Read requested save state ID
+			requestedSaveStateIDBytes := make([]byte, 4)
+			_, err = tcpData.Buffer.Read(requestedSaveStateIDBytes)
+			if err != nil {
+				g.Logger.Error(err, "TCP error reading requested save state ID", "address", conn.RemoteAddr().String())
+				tcpData.Request = RequestNone
+				continue
+			}
+			requestedSaveStateID := binary.BigEndian.Uint32(requestedSaveStateIDBytes)
+			
+			// Send the requested save state to this client
+			go g.sendSaveStateToClient(conn, requestedSaveStateID)
+			
+			g.Logger.Info("processed save state request", "id", requestedSaveStateID, "address", conn.RemoteAddr().String())
 			tcpData.Request = RequestNone
 		}
 

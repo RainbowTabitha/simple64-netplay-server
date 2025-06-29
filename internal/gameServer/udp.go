@@ -168,6 +168,42 @@ func (g *GameServer) processUDP(addr *net.UDPAddr) {
 
 				g.Logger.Error(fmt.Errorf("desync"), "game has desynced", "numPlayers", g.NumberOfPlayers, "clientSHA", g.ClientSha, "playTime", time.Since(g.StartTime).String(), "features", g.Features)
 			}
+			
+			// Log frame progress periodically (every 1000 frames)
+			if viCount%1000 == 0 {
+				g.Logger.Info("frame progress", "frame", viCount, "playTime", time.Since(g.StartTime).String())
+			}
+			
+			// Automatic save state synchronization based on frame interval
+			if g.SaveStateEnabled && g.SaveStateInterval > 0 && viCount%uint32(g.SaveStateInterval) == 0 {
+				g.Logger.Info("requesting save state at frame interval", "frame", viCount, "interval", g.SaveStateInterval)
+				
+				// Request save state from the host player (player 0)
+				g.ConnectionsMutex.Lock()
+				hostConn, hostExists := g.PlayerConnections[0]
+				g.ConnectionsMutex.Unlock()
+				
+				if hostExists && hostConn != nil {
+					// Create save state request packet: [packet_type][save_state_id]
+					packet := make([]byte, 5)
+					packet[0] = RequestReceiveSaveState
+					binary.BigEndian.PutUint32(packet[1:5], viCount)
+					
+					_, err := hostConn.Write(packet)
+					if err != nil {
+						g.Logger.Error(err, "failed to send save state request to host", "frame", viCount, "address", hostConn.RemoteAddr().String())
+						// Remove failed connection
+						g.ConnectionsMutex.Lock()
+						delete(g.ActiveConnections, hostConn)
+						delete(g.PlayerConnections, 0)
+						g.ConnectionsMutex.Unlock()
+					} else {
+						g.Logger.Info("sent save state request to host", "frame", viCount, "address", hostConn.RemoteAddr().String())
+					}
+				} else {
+					g.Logger.Info("host player connection not found for save state request", "frame", viCount)
+				}
+			}
 		}
 	}
 }
